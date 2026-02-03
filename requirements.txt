@@ -3,4 +3,3 @@ crewai-tools
 elevenlabs
 python-dotenv
 requests
-langchain-google-genai

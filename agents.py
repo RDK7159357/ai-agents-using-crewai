@@ -1,15 +1,15 @@
 from dotenv import load_dotenv
 import os
-from crewai import Agent
+from crewai import Agent, LLM
 from crewai_tools import SerperDevTool
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
 
-# Initialize Gemini LLM
-gemini_llm = ChatGoogleGenerativeAI(
+# Initialize Gemini LLM using CrewAI's LLM class
+gemini_llm = LLM(
     model="gemini-pro",
-    google_api_key=os.getenv("GOOGLE_API_KEY")
+    provider="google",
+    api_key=os.getenv("GOOGLE_API_KEY")
 )
 
 search_tool = SerperDevTool()
