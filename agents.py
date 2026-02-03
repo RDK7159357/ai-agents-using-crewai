@@ -1,15 +1,18 @@
 from dotenv import load_dotenv
 import os
+import time
 from crewai import Agent, LLM
 from crewai_tools import SerperDevTool
 
 load_dotenv()
 
-# Initialize Gemini LLM using CrewAI's LLM class
+# Initialize Gemini LLM using CrewAI's LLM class with rate limiting configuration
 gemini_llm = LLM(
     model="gemini-2.0-flash",
     provider="google",
-    api_key=os.getenv("GOOGLE_API_KEY")
+    api_key=os.getenv("GOOGLE_API_KEY"),
+    max_retries=5,  # Retry up to 5 times on rate limit errors
+    timeout=120  # Increased timeout for retries
 )
 
 search_tool = SerperDevTool()

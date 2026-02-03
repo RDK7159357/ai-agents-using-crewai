@@ -1,33 +1,70 @@
 from crewai import Task, Crew
 from agents import news_scout, company_researcher, speak_text, send_telegram
+import time
 
 def daily_brief():
+    print("🚀 Starting daily brief...")
+    
+    # Add delay to avoid rate limits
+    time.sleep(2)
+    
     task = Task(
         description="Summarize the most important technology news from the last 24 hours. Cover multiple topics across AI, software engineering, startups, cybersecurity, hardware, and emerging technologies. Focus on impactful stories that matter to tech professionals.",
         expected_output="A comprehensive, engaging briefing covering 5-10 key technology developments in a conversational style.",
         agent=news_scout
     )
     crew = Crew(agents=[news_scout], tasks=[task])
-    result = crew.kickoff()
     
-    # Format and send to Telegram
-    message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
-    send_telegram(message)
-    speak_text(result.raw)
+    try:
+        result = crew.kickoff()
+        
+        # Format and send to Telegram
+        message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
+        send_telegram(message)
+        speak_text(result.raw)
+    except Exception as e:
+        error_msg = f"Error during daily brief: {e}"
+        print(error_msg)
+        if "429" in str(e) or "TooManyRequests" in str(e):
+            print("\n⚠️  Rate limit hit. Waiting 60 seconds before retry...")
+            time.sleep(60)
+            print("Retrying...")
+            result = crew.kickoff()
+            message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
+            send_telegram(message)
+            speak_text(result.raw)
 
 def interview_prep(company):
+    print(f"🚀 Starting interview prep for {company}...")
+    
+    # Add delay to avoid rate limits
+    time.sleep(2)
+    
     task = Task(
         description=f"Research {company}. Focus on their engineering blog and AI stack.",
         expected_output="5 specific talking points to impress an interviewer.",
         agent=company_researcher
     )
     crew = Crew(agents=[company_researcher], tasks=[task])
-    result = crew.kickoff()
     
-    # Format and send to Telegram
-    message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
-    send_telegram(message)
-    print(result.raw)
+    try:
+        result = crew.kickoff()
+        
+        # Format and send to Telegram
+        message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
+        send_telegram(message)
+        print(result.raw)
+    except Exception as e:
+        error_msg = f"Error during interview prep: {e}"
+        print(error_msg)
+        if "429" in str(e) or "TooManyRequests" in str(e):
+            print("\n⚠️  Rate limit hit. Waiting 60 seconds before retry...")
+            time.sleep(60)
+            print("Retrying...")
+            result = crew.kickoff()
+            message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
+            send_telegram(message)
+            print(result.raw)
 
 if __name__ == "__main__":
     import sys
