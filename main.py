@@ -3,8 +3,8 @@ from agents import news_scout, company_researcher, speak_text, send_telegram
 
 def daily_brief():
     task = Task(
-        description="Summarize the most important AI news from the last 24 hours.",
-        expected_output="A 2-minute spoken-style briefing.",
+        description="Summarize the most important technology news from the last 24 hours. Cover multiple topics across AI, software engineering, startups, cybersecurity, hardware, and emerging technologies. Focus on impactful stories that matter to tech professionals.",
+        expected_output="A comprehensive, engaging briefing covering 5-10 key technology developments in a conversational style.",
         agent=news_scout
     )
     crew = Crew(agents=[news_scout], tasks=[task])

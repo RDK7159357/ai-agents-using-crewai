@@ -7,7 +7,7 @@ load_dotenv()
 
 # Initialize Gemini LLM using CrewAI's LLM class
 gemini_llm = LLM(
-    model="gemini-pro",
+    model="gemini-1.5-flash",
     provider="google",
     api_key=os.getenv("GOOGLE_API_KEY")
 )
@@ -16,9 +16,9 @@ search_tool = SerperDevTool()
 
 # Agent 1: The News Scout
 news_scout = Agent(
-    role='AI Trends Analyst',
-    goal='Identify the top 3 AI breakthroughs from the last 24 hours.',
-    backstory='An expert researcher who filters signal from noise in AI/ML.',
+    role='Technology Trends Analyst',
+    goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains.',
+    backstory='An expert researcher who filters signal from noise in technology news, covering AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech.',
     tools=[search_tool],
     verbose=True,
     llm=gemini_llm
