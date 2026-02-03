@@ -2,8 +2,15 @@ from dotenv import load_dotenv
 import os
 from crewai import Agent
 from crewai_tools import SerperDevTool
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
+
+# Initialize Gemini LLM
+gemini_llm = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    google_api_key=os.getenv("GOOGLE_API_KEY")
+)
 
 search_tool = SerperDevTool()
 
@@ -14,7 +21,7 @@ news_scout = Agent(
     backstory='An expert researcher who filters signal from noise in AI/ML.',
     tools=[search_tool],
     verbose=True,
-    llm='gemini-pro'
+    llm=gemini_llm
 )
 
 # Agent 2: The Interview Strategist
@@ -24,7 +31,7 @@ company_researcher = Agent(
     backstory='A specialist in engineering interviews who finds "value-add" angles.',
     tools=[search_tool],
     verbose=True,
-    llm='gemini-pro'
+    llm=gemini_llm
 )
 
 from elevenlabs.client import ElevenLabs
