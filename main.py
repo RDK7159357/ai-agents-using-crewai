@@ -22,13 +22,33 @@ def daily_brief():
     time.sleep(2)
     
     task = Task(
-        description="Summarize the most important technology news from the last 24 hours. Cover multiple topics across AI, software engineering, startups, cybersecurity, hardware, and emerging technologies. Focus on impactful stories that matter to tech professionals. Format each story with a clear title and brief description.",
-        expected_output="""A well-structured briefing with 5-10 key technology developments. Format each story as:
+        description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours. 
         
-📰 [Story Title]
-[2-3 sentence summary explaining the key details and why it matters]
+REQUIREMENTS:
+- Include SPECIFIC company names, product names, and version numbers
+- Cite CONCRETE numbers: funding amounts, user counts, performance metrics, percentages
+- Mention ACTUAL features, capabilities, or technical specifications
+- Reference REAL announcements, launches, or releases with specific dates
+- Include WHO (company/person), WHAT (specific product/feature), WHY it matters (with concrete impact)
+        
+Avoid generic statements. Every story must have verifiable, specific details.
+Cover AI, software engineering, startups, cybersecurity, hardware, and emerging tech.""",
+        expected_output="""5-10 news stories with SPECIFIC details. Each story must include:
+        
+📰 **[Specific Product/Company Name]: [What Happened]**
+• Concrete detail 1 (with numbers, names, or specifications)
+• Concrete detail 2 (actual feature, metric, or announcement)
+• Why it matters (specific impact, use case, or implication)
 
-Keep it conversational, engaging, and focused on actionable insights for tech professionals.""",
+Example:
+📰 **OpenAI Releases GPT-5 with 10 Trillion Parameters**
+• Launched on February 3, 2026 with 10 trillion parameters (5x larger than GPT-4)
+• New multimodal capabilities process video at 60fps, up from 30fps
+• Benchmarks show 40% improvement in code generation accuracy on HumanEval
+• Priced at $0.03 per 1K tokens, 25% cheaper than GPT-4 Turbo
+• Why it matters: First model to pass the ARC-AGI benchmark, suggesting progress toward general reasoning
+
+DO NOT use vague phrases like "continues to be important" or "experts say". Every point needs specifics.""",
         agent=news_scout
     )
     crew = Crew(agents=[news_scout], tasks=[task])
@@ -78,13 +98,32 @@ def interview_prep(company):
     time.sleep(2)
     
     task = Task(
-        description=f"Research {company}. Focus on their engineering blog, tech stack, recent innovations, and company culture. Find concrete, specific information that would help in an interview.",
-        expected_output="""5 specific, actionable talking points formatted as:
+        description=f"""Research {company} and find SPECIFIC, CONCRETE information for interview preparation.
         
-💡 [Talking Point Title]
-[2-3 sentences with specific details, facts, or insights that demonstrate knowledge of the company]
+REQUIREMENTS:
+- Identify SPECIFIC technologies in their stack (exact versions, frameworks, tools)
+- Find RECENT developments: latest product launches, features, acquisitions (with dates)
+- Discover CONCRETE metrics: revenue, user numbers, growth rates, market position
+- Reference ACTUAL blog posts, GitHub repos, tech talks (with titles and dates)
+- Identify SPECIFIC challenges or problems they're solving
+- Find REAL examples of their engineering culture, practices, or values
+        
+Avoid generic advice. Every talking point must be verifiable and specific to {company}.""",
+        expected_output=f"""5 specific, well-researched talking points with CONCRETE details:
+        
+💡 **[Specific Topic/Technology]**
+• Specific fact 1 (with numbers, dates, or exact technologies)
+• Specific fact 2 (actual product feature, blog post title, or initiative)
+• How to use this in interview (concrete question to ask or value to demonstrate)
 
-Focus on recent developments, technical choices, and opportunities to add value.""",
+Example:
+💡 **Their Kubernetes Migration at Scale**
+• Migrated 10,000+ microservices to Kubernetes 1.28 in Q4 2025 (mentioned in Dec 2025 blog post)
+• Built custom autoscaler "ScaleX" that reduced compute costs by 35%
+• Open-sourced their service mesh configuration tool on GitHub (2,300+ stars)
+• Interview angle: Ask about their approach to observability during the migration, mention experience with similar scale challenges
+
+Every point should reference actual, verifiable information about {company}.""",
         agent=company_researcher
     )
     crew = Crew(agents=[company_researcher], tasks=[task])
@@ -129,10 +168,20 @@ Focus on recent developments, technical choices, and opportunities to add value.
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "interview":
+    
+    # Check if running in bot mode
+    if len(sys.argv) > 1 and sys.argv[1] == "bot":
+        from telegram_bot import TelegramBot
+        bot = TelegramBot(daily_brief, interview_prep)
+        bot.start()
+    
+    # Check if running interview prep from CLI
+    elif len(sys.argv) > 1 and sys.argv[1] == "interview":
         if len(sys.argv) > 2:
             interview_prep(sys.argv[2])
         else:
             print("Usage: python main.py interview <company_name>")
+    
+    # Default: run daily brief
     else:
         daily_brief()

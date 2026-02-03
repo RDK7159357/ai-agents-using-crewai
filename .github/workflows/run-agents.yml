@@ -1,0 +1,62 @@
+name: Run AI Agents
+
+on:
+  repository_dispatch:
+    types: [run-brief, run-interview]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task to run (brief or interview)'
+        required: true
+        default: 'brief'
+      company:
+        description: 'Company name (for interview prep)'
+        required: false
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run Daily Brief
+      if: github.event.action == 'run-brief' || github.event.inputs.task == 'brief'
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        python main.py
+    
+    - name: Run Interview Prep
+      if: github.event.action == 'run-interview' || github.event.inputs.task == 'interview'
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        python main.py interview "${{ github.event.client_payload.company || github.event.inputs.company }}"
