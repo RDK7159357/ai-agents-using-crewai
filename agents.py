@@ -7,7 +7,7 @@ load_dotenv()
 
 # Initialize Gemini LLM using CrewAI's LLM class
 gemini_llm = LLM(
-    model="gemini-2.0-flash-exp",
+    model="gemini-1.5-pro",
     provider="google",
     api_key=os.getenv("GOOGLE_API_KEY")
 )
