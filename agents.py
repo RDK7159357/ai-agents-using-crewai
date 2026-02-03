@@ -37,7 +37,7 @@ company_researcher = Agent(
 from elevenlabs.client import ElevenLabs
 from elevenlabs import play
 
-client = ElevenLabs(ElevenLabs.api_key_from_env(), cache_root="cache")
+client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 def speak_text(text):
     audio = client.generate(
