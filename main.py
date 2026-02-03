@@ -1,5 +1,5 @@
 from crewai import Task, Crew
-from agents import news_scout, company_researcher, speak_text
+from agents import news_scout, company_researcher, speak_text, send_telegram
 
 def daily_brief():
     task = Task(
@@ -9,6 +9,10 @@ def daily_brief():
     )
     crew = Crew(agents=[news_scout], tasks=[task])
     result = crew.kickoff()
+    
+    # Format and send to Telegram
+    message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
+    send_telegram(message)
     speak_text(result.raw)
 
 def interview_prep(company):
@@ -19,4 +23,18 @@ def interview_prep(company):
     )
     crew = Crew(agents=[company_researcher], tasks=[task])
     result = crew.kickoff()
-    print(result.raw) # Usually better to read these points, but you can speak them too!
+    
+    # Format and send to Telegram
+    message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
+    send_telegram(message)
+    print(result.raw)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "interview":
+        if len(sys.argv) > 2:
+            interview_prep(sys.argv[2])
+        else:
+            print("Usage: python main.py interview <company_name>")
+    else:
+        daily_brief()
