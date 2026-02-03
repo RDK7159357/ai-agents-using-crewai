@@ -1,6 +1,19 @@
 from crewai import Task, Crew
 from agents import news_scout, company_researcher, speak_text, send_telegram
 import time
+import re
+
+def format_for_telegram(text):
+    """Convert markdown formatting to Telegram HTML"""
+    # Convert **bold** to <b>bold</b>
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Convert *italic* to <i>italic</i>
+    text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+    # Convert __bold__ to <b>bold</b>
+    text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
+    # Convert _italic_ to <i>italic</i>
+    text = re.sub(r'_(.+?)_', r'<i>\1</i>', text)
+    return text
 
 def daily_brief():
     print("🚀 Starting daily brief...")
@@ -27,10 +40,11 @@ Keep it conversational, engaging, and focused on actionable insights for tech pr
         from datetime import datetime
         today = datetime.now().strftime("%B %d, %Y")
         
+        formatted_content = format_for_telegram(result.raw)
         message = f"""<b>🤖 Tech Daily Brief</b>
 <i>{today}</i>
 
-{result.raw}
+{formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
 <i>Powered by AI Agent</i>"""
@@ -46,10 +60,11 @@ Keep it conversational, engaging, and focused on actionable insights for tech pr
             result = crew.kickoff()
             from datetime import datetime
             today = datetime.now().strftime("%B %d, %Y")
+            formatted_content = format_for_telegram(result.raw)
             message = f"""<b>🤖 Tech Daily Brief</b>
 <i>{today}</i>
 
-{result.raw}
+{formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
 <i>Powered by AI Agent</i>"""
@@ -81,10 +96,11 @@ Focus on recent developments, technical choices, and opportunities to add value.
         from datetime import datetime
         today = datetime.now().strftime("%B %d, %Y")
         
+        formatted_content = format_for_telegram(result.raw)
         message = f"""<b>💼 Interview Prep: {company}</b>
 <i>Prepared on {today}</i>
 
-{result.raw}
+{formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
 <i>Good luck! 🍀</i>"""
@@ -100,10 +116,11 @@ Focus on recent developments, technical choices, and opportunities to add value.
             result = crew.kickoff()
             from datetime import datetime
             today = datetime.now().strftime("%B %d, %Y")
+            formatted_content = format_for_telegram(result.raw)
             message = f"""<b>💼 Interview Prep: {company}</b>
 <i>Prepared on {today}</i>
 
-{result.raw}
+{formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
 <i>Good luck! 🍀</i>"""
