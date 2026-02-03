@@ -9,8 +9,13 @@ def daily_brief():
     time.sleep(2)
     
     task = Task(
-        description="Summarize the most important technology news from the last 24 hours. Cover multiple topics across AI, software engineering, startups, cybersecurity, hardware, and emerging technologies. Focus on impactful stories that matter to tech professionals.",
-        expected_output="A comprehensive, engaging briefing covering 5-10 key technology developments in a conversational style.",
+        description="Summarize the most important technology news from the last 24 hours. Cover multiple topics across AI, software engineering, startups, cybersecurity, hardware, and emerging technologies. Focus on impactful stories that matter to tech professionals. Format each story with a clear title and brief description.",
+        expected_output="""A well-structured briefing with 5-10 key technology developments. Format each story as:
+        
+📰 [Story Title]
+[2-3 sentence summary explaining the key details and why it matters]
+
+Keep it conversational, engaging, and focused on actionable insights for tech professionals.""",
         agent=news_scout
     )
     crew = Crew(agents=[news_scout], tasks=[task])
@@ -18,8 +23,17 @@ def daily_brief():
     try:
         result = crew.kickoff()
         
-        # Format and send to Telegram
-        message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
+        # Format and send to Telegram with proper HTML formatting
+        from datetime import datetime
+        today = datetime.now().strftime("%B %d, %Y")
+        
+        message = f"""<b>🤖 Tech Daily Brief</b>
+<i>{today}</i>
+
+{result.raw}
+
+<i>━━━━━━━━━━━━━━━━</i>
+<i>Powered by AI Agent</i>"""
         send_telegram(message)
         speak_text(result.raw)
     except Exception as e:
@@ -30,7 +44,15 @@ def daily_brief():
             time.sleep(60)
             print("Retrying...")
             result = crew.kickoff()
-            message = f"<b>🤖 AI Daily Brief</b>\n\n{result.raw}"
+            from datetime import datetime
+            today = datetime.now().strftime("%B %d, %Y")
+            message = f"""<b>🤖 Tech Daily Brief</b>
+<i>{today}</i>
+
+{result.raw}
+
+<i>━━━━━━━━━━━━━━━━</i>
+<i>Powered by AI Agent</i>"""
             send_telegram(message)
             speak_text(result.raw)
 
@@ -41,8 +63,13 @@ def interview_prep(company):
     time.sleep(2)
     
     task = Task(
-        description=f"Research {company}. Focus on their engineering blog and AI stack.",
-        expected_output="5 specific talking points to impress an interviewer.",
+        description=f"Research {company}. Focus on their engineering blog, tech stack, recent innovations, and company culture. Find concrete, specific information that would help in an interview.",
+        expected_output="""5 specific, actionable talking points formatted as:
+        
+💡 [Talking Point Title]
+[2-3 sentences with specific details, facts, or insights that demonstrate knowledge of the company]
+
+Focus on recent developments, technical choices, and opportunities to add value.""",
         agent=company_researcher
     )
     crew = Crew(agents=[company_researcher], tasks=[task])
@@ -51,7 +78,16 @@ def interview_prep(company):
         result = crew.kickoff()
         
         # Format and send to Telegram
-        message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
+        from datetime import datetime
+        today = datetime.now().strftime("%B %d, %Y")
+        
+        message = f"""<b>💼 Interview Prep: {company}</b>
+<i>Prepared on {today}</i>
+
+{result.raw}
+
+<i>━━━━━━━━━━━━━━━━</i>
+<i>Good luck! 🍀</i>"""
         send_telegram(message)
         print(result.raw)
     except Exception as e:
@@ -62,7 +98,15 @@ def interview_prep(company):
             time.sleep(60)
             print("Retrying...")
             result = crew.kickoff()
-            message = f"<b>💼 Interview Prep: {company}</b>\n\n{result.raw}"
+            from datetime import datetime
+            today = datetime.now().strftime("%B %d, %Y")
+            message = f"""<b>💼 Interview Prep: {company}</b>
+<i>Prepared on {today}</i>
+
+{result.raw}
+
+<i>━━━━━━━━━━━━━━━━</i>
+<i>Good luck! 🍀</i>"""
             send_telegram(message)
             print(result.raw)
 
