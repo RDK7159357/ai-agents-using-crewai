@@ -1,7 +1,8 @@
 from crewai import Task, Crew
-from agents import news_scout, company_researcher, speak_text, send_telegram
+from agents import news_scout, company_researcher, speak_text, send_telegram, get_llm, reset_tried_models, create_news_scout_agent
 import time
 import re
+import os
 
 def format_for_telegram(text):
     """Convert markdown formatting to Telegram HTML"""
@@ -15,19 +16,54 @@ def format_for_telegram(text):
     text = re.sub(r'_(.+?)_', r'<i>\1</i>', text)
     return text
 
+def get_current_model_name(llm):
+    """Extract model name from LLM object"""
+    model_str = llm.model if hasattr(llm, 'model') else str(llm)
+    # Extract the model name from formats like "groq/llama-3.1-8b-instant"
+    if '/' in model_str:
+        parts = model_str.split('/')
+        model_name = parts[0]  # e.g., "groq", "google", "openrouter", "mistral"
+        return model_name
+    return "unknown"
+
+def extract_model_provider(model_string):
+    """Extract provider name from model string like 'groq/llama-3.1-8b-instant'"""
+    if '/' in model_string:
+        return model_string.split('/')[0]
+    return model_string
+
 def daily_brief():
+    """Execute daily brief with runtime fallback mechanism"""
     print("🚀 Starting daily brief...")
     
     # Show which model is being used
-    import os
     preferred = os.getenv("PREFERRED_MODEL", "gemini")
-    print(f"🤖 Model configuration: {preferred} (with automatic fallback)")
+    print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
     
     # Add delay to avoid rate limits
     time.sleep(2)
     
-    task = Task(
-        description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours. 
+    # Reset tried models for this execution
+    reset_tried_models()
+    tried_models = set()
+    max_retries = 3
+    current_attempt = 0
+    
+    while current_attempt < max_retries:
+        current_attempt += 1
+        
+        try:
+            # Get LLM with fallback to untried models
+            current_llm = get_llm(skip_models=tried_models)
+            current_model = extract_model_provider(current_llm.model)
+            
+            print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+            
+            # Create fresh agent with current LLM
+            fresh_news_scout = create_news_scout_agent(current_llm)
+            
+            task = Task(
+                description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours. 
         
 CRITICAL REQUIREMENTS:
 - MUST return MINIMUM 5-10 news stories (this is mandatory, not optional)
@@ -46,7 +82,7 @@ GEOGRAPHIC COVERAGE:
         
 Avoid generic statements. Every story must have verifiable, specific details.
 DO NOT return just 1-2 stories. You MUST find and return 5-10 distinct news items.""",
-        expected_output="""MINIMUM 5-10 news stories with SPECIFIC details. MUST include both global and Indian tech news.
+                expected_output="""MINIMUM 5-10 news stories with SPECIFIC details. MUST include both global and Indian tech news.
 
 Structure each story as:
         
@@ -78,49 +114,73 @@ You MUST provide AT LEAST 5 stories total. Include diverse topics covering:
 - Product launches (global and India-specific)
 
 DO NOT use vague phrases like "continues to be important" or "experts say". Every point needs specifics.""",
-        agent=news_scout
-    )
-    
-    # Configure crew with limits to reduce API usage
-    crew = Crew(
-        agents=[news_scout], 
-        tasks=[task],
-        max_rpm=10,  # Max 10 requests per minute
-        verbose=True
-    )
-    
-    try:
-        result = crew.kickoff()
-        
-        # Format and send to Telegram with proper HTML formatting
-        from datetime import datetime
-        today = datetime.now().strftime("%B %d, %Y")
-        
-        formatted_content = format_for_telegram(result.raw)
-        message = f"""<b>🤖 Tech Daily Brief</b>
+                agent=fresh_news_scout
+            )
+            
+            # Configure crew with limits to reduce API usage
+            crew = Crew(
+                agents=[fresh_news_scout], 
+                tasks=[task],
+                max_rpm=10,  # Max 10 requests per minute
+                verbose=True
+            )
+            
+            # Execute the task
+            result = crew.kickoff()
+            
+            # Format and send to Telegram with proper HTML formatting
+            from datetime import datetime
+            today = datetime.now().strftime("%B %d, %Y")
+            
+            formatted_content = format_for_telegram(result.raw)
+            message = f"""<b>🤖 Tech Daily Brief</b>
 <i>{today}</i>
 
 {formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
-<i>Powered by AI Agent</i>"""
-        send_telegram(message)
-        speak_text(result.raw)
-    except Exception as e:
-        error_msg = f"Error during daily brief: {e}"
-        print(error_msg)
-        
-        # Check if it's a rate limit error
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "TooManyRequests" in str(e):
-            send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n{str(e)[:500]}\n\n<i>This usually means you've exceeded the Gemini API free tier quota (20 requests/day for gemini-2.5-flash, 1500/day for gemini-1.5-flash).\n\nPlease wait and try again later, or upgrade to a paid tier.</i>")
-            print("\n❌ Rate limit exceeded. Cannot retry - quota exhausted.")
-            print("\nSolutions:")
-            print("1. Wait 24 hours for quota reset")
-            print("2. Upgrade to paid Gemini API tier")
-            print("3. Switch to gemini-1.5-flash (1500 req/day free tier)")
-        else:
-            # For other errors, send error notification
-            send_telegram(f"❌ <b>Error in Daily Brief</b>\n\n<code>{str(e)[:500]}</code>")
+<i>Powered by AI Agent ({current_model})</i>"""
+            send_telegram(message)
+            
+            # Try audio generation but don't fail if it doesn't work
+            try:
+                speak_text(result.raw)
+            except Exception as audio_error:
+                print(f"⚠️ Audio generation failed: {audio_error}")
+                print("But news brief was sent successfully!")
+            
+            print(f"✅ Daily brief completed successfully with {current_model}!")
+            return  # Success - exit the retry loop
+            
+        except Exception as e:
+            error_str = str(e)
+            print(f"\n❌ Error with {current_model}: {error_str[:200]}")
+            
+            # Track this model as tried
+            tried_models.add(current_model)
+            
+            # Check if we should retry
+            if current_attempt < max_retries:
+                print(f"⚠️ Switching to next model...")
+                time.sleep(2)  # Brief delay before retry
+                continue
+            else:
+                # All retries exhausted
+                print(f"\n❌ All {max_retries} attempts failed. No more models to try.")
+                
+                # Check error type for helpful message
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str:
+                    send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n{error_str[:500]}\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later, or add more API keys.</i>")
+                    print("\n🔧 Rate limit solutions:")
+                    print("1. Wait 24 hours for quota reset")
+                    print("2. Add more API keys to .env file")
+                    print("3. Upgrade to paid API tiers")
+                else:
+                    send_telegram(f"❌ <b>Critical Error in Daily Brief</b>\n\n<code>{error_str[:500]}</code>\n\n<i>All fallback models failed. Please check API keys and try again.</i>")
+                    print(f"\n🔧 Troubleshooting:")
+                    print("1. Verify all API keys in .env file")
+                    print("2. Check API key validity and quota")
+                    print("3. Ensure internet connection is working")
 
 def interview_prep(company):
     print(f"🚀 Starting interview prep for {company}...")

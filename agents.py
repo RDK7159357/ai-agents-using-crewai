@@ -6,88 +6,110 @@ from crewai_tools import SerperDevTool
 
 load_dotenv()
 
-def get_llm():
+# Track which models have already been tried to avoid infinite loops
+_models_tried = set()
+
+def reset_tried_models():
+    """Reset the list of tried models for retry logic"""
+    global _models_tried
+    _models_tried = set()
+
+def get_llm(skip_models=None):
     """
     Get LLM with fallback support.
     Tries models in order based on PREFERRED_MODEL setting.
-    Set PREFERRED_MODEL in .env to override (gemini, gemini-2.5, groq, openrouter, mistral)
+    Set PREFERRED_MODEL in .env to override (gemini, groq, openrouter, mistral)
+    
+    Args:
+        skip_models: Set of model names to skip (used for fallback retries)
     """
+    if skip_models is None:
+        skip_models = set()
+    
     preferred_model = os.getenv("PREFERRED_MODEL", "gemini").lower()
     
     models_config = {
         "gemini": {
-            "model": "google/gemini-1.5-flash",
-            "api_key": os.getenv("GOOGLE_API_KEY"),
-            "name": "Gemini 1.5 Flash",
-            "free_tier": "1500 req/day"
-        },
-        "gemini-2.5": {
-            "model": "google/gemini-2.5-flash",
-            "api_key": os.getenv("GOOGLE_API_KEY"),
+            "model": "gemini-2.5-flash",
+            "api_key_env": "GOOGLE_API_KEY",
             "name": "Gemini 2.5 Flash",
-            "free_tier": "20 req/day (experimental)"
+            "free_tier": "10 req/min"
         },
         "groq": {
-            "model": "groq/llama-3.1-8b-instant",
-            "api_key": os.getenv("GROQ_API_KEY"),
+            "model": "llama-3.1-8b-instant",
+            "api_key_env": "GROQ_API_KEY",
             "name": "Groq Llama 3.1 8B Instant",
-            "free_tier": "free tier available"
+            "free_tier": "unlimited"
         },
         "openrouter": {
-            "model": "openrouter/meta-llama/llama-3.1-8b-instruct",
-            "api_key": os.getenv("OPENROUTER_API_KEY"),
+            "model": "meta-llama/llama-3.1-8b-instruct",
+            "api_key_env": "OPENROUTER_API_KEY",
             "name": "OpenRouter Llama 3.1 8B Instruct",
-            "free_tier": "free tier available"
+            "free_tier": "limited"
         },
         "mistral": {
-            "model": "mistral/mistral-small-latest",
-            "api_key": os.getenv("MISTRAL_API_KEY"),
+            "model": "mistral-small-latest",
+            "api_key_env": "MISTRAL_API_KEY",
             "name": "Mistral Small Latest",
-            "free_tier": "free tier available"
+            "free_tier": "limited"
         }
     }
     
-    # Try preferred model first
-    if preferred_model in models_config:
-        config = models_config[preferred_model]
-        if config["api_key"]:
-            print(f"🤖 Using {config['name']} ({config['free_tier']})")
-            return LLM(
-                model=config["model"],
-                api_key=config["api_key"],
-                max_retries=3,
-                timeout=180,
-                temperature=0.7
-            )
+    # Fallback order: Try Gemini 2.5 Flash first, then fallbacks
+    fallback_order = ["gemini", "groq", "openrouter", "mistral"]
     
-    # Fallback to any available model (FREE TIER ONLY)
-    fallback_order = ["gemini", "gemini-2.5", "groq", "openrouter", "mistral"]
+    # Move preferred model to front if specified
+    if preferred_model in models_config and preferred_model != "gemini":
+        fallback_order.remove(preferred_model)
+        fallback_order.insert(0, preferred_model)
+    
+    # Try each model in order (skip already-tried ones)
     for model_name in fallback_order:
-        if model_name == preferred_model:
-            continue  # Already tried
+        if model_name in skip_models:
+            continue  # Skip models that already failed
+            
         config = models_config[model_name]
-        if config["api_key"]:
-            print(f"⚠️ Falling back to {config['name']} ({config['free_tier']})")
-            return LLM(
-                model=config["model"],
-                api_key=config["api_key"],
-                max_retries=3,
-                timeout=180,
-                temperature=0.7
-            )
+        api_key = os.getenv(config["api_key_env"])
+        
+        if api_key:
+            try:
+                print(f"🤖 Using {config['name']} ({config['free_tier']})")
+                
+                # Create model string with provider prefix
+                if model_name == "gemini":
+                    full_model = f"google/{config['model']}"
+                elif model_name == "groq":
+                    full_model = f"groq/{config['model']}"
+                elif model_name == "openrouter":
+                    full_model = f"openrouter/{config['model']}"
+                elif model_name == "mistral":
+                    full_model = f"mistral/{config['model']}"
+                else:
+                    full_model = config['model']
+                
+                return LLM(
+                    model=full_model,
+                    api_key=api_key,
+                    max_retries=3,
+                    timeout=180,
+                    temperature=0.7
+                )
+            except Exception as e:
+                print(f"⚠️ {config['name']} initialization failed: {str(e)}")
+                continue
     
     # No API keys found
     raise ValueError(
         "No free-tier LLM API keys found!\n\n"
-        "This app uses FREE TIER models only.\n"
+        "This app uses FREE TIER models with automatic fallback.\n"
         "Please set at least one of:\n"
-        "- GOOGLE_API_KEY (Gemini 2.5 Flash)\n"
-        "- GROQ_API_KEY (Groq Llama 3.1)\n"
+        "- GROQ_API_KEY (Groq Llama 3.1) - RECOMMENDED - unlimited free tier\n"
+        "- GOOGLE_API_KEY (Gemini 1.5 Flash)\n"
         "- OPENROUTER_API_KEY (OpenRouter Llama 3.1)\n"
         "- MISTRAL_API_KEY (Mistral Small)\n\n"
         "Get keys here:\n"
+        "- Groq: https://console.groq.com/keys (RECOMMENDED)\n"
         "- Gemini: https://aistudio.google.com/app/apikey\n"
-        "- Groq: https://console.groq.com/keys\n"
         "- OpenRouter: https://openrouter.ai/keys\n"
         "- Mistral: https://console.mistral.ai/api-keys"
     )
@@ -97,29 +119,37 @@ gemini_llm = get_llm()
 
 search_tool = SerperDevTool()
 
+def create_news_scout_agent(llm):
+    """Factory function to create news scout agent with given LLM"""
+    return Agent(
+        role='Technology Trends Analyst',
+        goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains and geographies, with special focus on both global and Indian tech ecosystems.',
+        backstory='An expert researcher who filters signal from noise in technology news globally. Covers AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech from Silicon Valley to Bangalore. Particularly skilled at finding concrete details and diverse geographic perspectives, ensuring both global innovation and Indian tech ecosystem developments are captured.',
+        tools=[search_tool],
+        verbose=True,
+        llm=llm,
+        max_iter=15,  # Increased to allow thorough searching for multiple stories
+        max_execution_time=600  # 10 minute timeout for comprehensive research
+    )
+
+def create_company_researcher_agent(llm):
+    """Factory function to create company researcher agent with given LLM"""
+    return Agent(
+        role='Corporate Value Analyst',
+        goal='Research {company_name} to find technical challenges I can help solve.',
+        backstory='A specialist in engineering interviews who finds "value-add" angles.',
+        tools=[search_tool],
+        verbose=True,
+        llm=llm,
+        max_iter=8,  # Limit iterations to reduce API calls
+        max_execution_time=300  # 5 minute timeout
+    )
+
 # Agent 1: The News Scout
-news_scout = Agent(
-    role='Technology Trends Analyst',
-    goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains and geographies, with special focus on both global and Indian tech ecosystems.',
-    backstory='An expert researcher who filters signal from noise in technology news globally. Covers AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech from Silicon Valley to Bangalore. Particularly skilled at finding concrete details and diverse geographic perspectives, ensuring both global innovation and Indian tech ecosystem developments are captured.',
-    tools=[search_tool],
-    verbose=True,
-    llm=gemini_llm,
-    max_iter=15,  # Increased to allow thorough searching for multiple stories
-    max_execution_time=600  # 10 minute timeout for comprehensive research
-)
+news_scout = create_news_scout_agent(gemini_llm)
 
 # Agent 2: The Interview Strategist
-company_researcher = Agent(
-    role='Corporate Value Analyst',
-    goal='Research {company_name} to find technical challenges I can help solve.',
-    backstory='A specialist in engineering interviews who finds "value-add" angles.',
-    tools=[search_tool],
-    verbose=True,
-    llm=gemini_llm,
-    max_iter=8,  # Limit iterations to reduce API calls
-    max_execution_time=300  # 5 minute timeout
-)
+company_researcher = create_company_researcher_agent(gemini_llm)
 
 from elevenlabs.client import ElevenLabs
 from elevenlabs import play
@@ -127,12 +157,20 @@ from elevenlabs import play
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 def speak_text(text):
-    audio = client.generate(
-        text=text,
-        voice="Brian", # High-quality professional voice
-        model="eleven_multilingual_v2"
-    )
-    play(audio)
+    """Generate and play audio from text using ElevenLabs"""
+    try:
+        # Truncate text to avoid hitting API limits
+        text_to_speak = text[:500] if len(text) > 500 else text
+        
+        audio = client.text_to_speech.convert(
+            text=text_to_speak,
+            voice_id="nPczCjzI2devNBz1zQrb",  # Brian voice ID
+            model_id="eleven_monolingual_v1"
+        )
+        play(audio)
+    except Exception as e:
+        print(f"⚠️ Audio generation failed: {str(e)}")
+        print("Continuing without audio...")
 
 def send_telegram(text):
     """Send message to Telegram"""
