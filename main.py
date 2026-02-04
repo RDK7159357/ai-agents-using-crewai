@@ -5,15 +5,22 @@ import re
 import os
 
 def format_for_telegram(text):
-    """Convert markdown formatting to Telegram HTML"""
-    # Convert **bold** to <b>bold</b>
-    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-    # Convert *italic* to <i>italic</i>
-    text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
-    # Convert __bold__ to <b>bold</b>
-    text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
-    # Convert _italic_ to <i>italic</i>
-    text = re.sub(r'_(.+?)_', r'<i>\1</i>', text)
+    """Convert markdown formatting to Telegram HTML, safely handling special characters"""
+    # Escape HTML special characters first (except those we'll use for formatting)
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    
+    # Convert **bold** to <b>bold</b> (must be done before single *)
+    text = re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', text)
+    
+    # Convert *italic* to <i>italic</i> (but not if it's part of **)
+    # Only match single * that aren't already part of HTML tags
+    text = re.sub(r'(?<!\*)\*(?!\*)([^*]+?)\*(?!\*)', r'<i>\1</i>', text)
+    
+    # Clean up any remaining standalone * or _ that aren't formatting
+    # (This handles bullet points like "• ")
+    
     return text
 
 def get_current_model_name(llm):
@@ -66,7 +73,7 @@ def daily_brief():
     # Reset tried models for this execution
     reset_tried_models()
     tried_models = set()
-    max_retries = 3
+    max_retries = 4  # Increased to 4 to try all models: gemini, groq, openrouter, mistral
     current_attempt = 0
     
     while current_attempt < max_retries:

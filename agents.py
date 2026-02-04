@@ -42,9 +42,9 @@ def get_llm(skip_models=None):
             "free_tier": "unlimited"
         },
         "openrouter": {
-            "model": "meta-llama/llama-3.1-8b-instruct",
+            "model": "upstage/solar-pro-3:free",
             "api_key_env": "OPENROUTER_API_KEY",
-            "name": "OpenRouter Llama 3.1 8B Instruct",
+            "name": "OpenRouter Solar Pro 3 (free)",
             "free_tier": "limited"
         },
         "mistral": {
