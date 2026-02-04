@@ -152,25 +152,65 @@ news_scout = create_news_scout_agent(gemini_llm)
 company_researcher = create_company_researcher_agent(gemini_llm)
 
 from elevenlabs.client import ElevenLabs
-from elevenlabs import play
+from elevenlabs import save
 
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 def speak_text(text):
-    """Generate and play audio from text using ElevenLabs"""
+    """Generate audio from text using ElevenLabs and send to Telegram"""
     try:
         # Truncate text to avoid hitting API limits
         text_to_speak = text[:500] if len(text) > 500 else text
         
+        print("🎙️ Generating audio...")
         audio = client.text_to_speech.convert(
             text=text_to_speak,
             voice_id="nPczCjzI2devNBz1zQrb",  # Brian voice ID
             model_id="eleven_monolingual_v1"
         )
-        play(audio)
+        
+        # Save audio to file
+        audio_file = "/tmp/daily_brief.mp3"
+        save(audio, audio_file)
+        print(f"✅ Audio saved to {audio_file}")
+        
+        # Send to Telegram
+        send_telegram_audio(audio_file)
+        
     except Exception as e:
         print(f"⚠️ Audio generation failed: {str(e)}")
         print("Continuing without audio...")
+
+def send_telegram_audio(audio_file_path):
+    """Send audio file to Telegram"""
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    
+    if not bot_token or not chat_id:
+        print("Telegram credentials not set. Skipping audio...")
+        return
+    
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{bot_token}/sendAudio"
+        
+        with open(audio_file_path, 'rb') as audio_file:
+            files = {'audio': audio_file}
+            data = {'chat_id': chat_id, 'title': 'Daily Tech Brief'}
+            response = requests.post(url, files=files, data=data)
+            
+            if response.status_code == 200:
+                print("✅ Audio sent to Telegram")
+                return True
+            else:
+                print(f"❌ Failed to send audio: {response.status_code} - {response.text}")
+                return False
+                
+    except Exception as e:
+        print(f"❌ Failed to send audio to Telegram: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 def send_telegram(text):
     """Send message to Telegram, splitting if needed"""
