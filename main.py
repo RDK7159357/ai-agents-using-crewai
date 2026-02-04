@@ -179,16 +179,16 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             # Track this model as tried
             tried_models.add(current_model)
             
-            # Check if we should retry
+            # Check if we should retry with next model
             if current_attempt < max_retries:
                 print(f"⚠️ Switching to next model...")
                 time.sleep(2)  # Brief delay before retry
-                continue
+                continue  # Try next model - don't send error notification yet
             else:
-                # All retries exhausted
+                # All retries exhausted - send error notification
                 print(f"\n❌ All {max_retries} attempts failed. No more models to try.")
                 
-                # Check error type for helpful message
+                # Send Telegram notification only after all attempts fail
                 if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str:
                     send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n{error_str[:500]}\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later, or add more API keys.</i>")
                     print("\n🔧 Rate limit solutions:")

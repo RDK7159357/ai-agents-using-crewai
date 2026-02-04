@@ -173,7 +173,7 @@ def speak_text(text):
         print("Continuing without audio...")
 
 def send_telegram(text):
-    """Send message to Telegram"""
+    """Send message to Telegram, splitting if needed"""
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
@@ -184,7 +184,59 @@ def send_telegram(text):
     try:
         import requests
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-        requests.post(url, data=data)
+        
+        # Telegram has 4096 character limit per message
+        MAX_LENGTH = 4000  # Leave some buffer
+        
+        if len(text) <= MAX_LENGTH:
+            # Send as single message
+            data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+            response = requests.post(url, data=data)
+            if response.status_code != 200:
+                print(f"❌ Telegram API error: {response.status_code} - {response.text}")
+                return False
+            print(f"✅ Telegram message sent ({len(text)} chars)")
+            return True
+        else:
+            # Split into multiple messages
+            print(f"⚠️ Message too long ({len(text)} chars). Splitting...")
+            
+            # Split by double newlines to keep stories together
+            parts = text.split('\n\n')
+            current_chunk = ""
+            chunk_count = 0
+            
+            for part in parts:
+                if len(current_chunk) + len(part) + 2 <= MAX_LENGTH:
+                    current_chunk += part + "\n\n"
+                else:
+                    # Send current chunk
+                    if current_chunk:
+                        chunk_count += 1
+                        data = {"chat_id": chat_id, "text": current_chunk, "parse_mode": "HTML"}
+                        response = requests.post(url, data=data)
+                        if response.status_code != 200:
+                            print(f"❌ Telegram chunk {chunk_count} failed: {response.text}")
+                        else:
+                            print(f"✅ Sent chunk {chunk_count} ({len(current_chunk)} chars)")
+                    # Start new chunk
+                    current_chunk = part + "\n\n"
+            
+            # Send final chunk
+            if current_chunk:
+                chunk_count += 1
+                data = {"chat_id": chat_id, "text": current_chunk, "parse_mode": "HTML"}
+                response = requests.post(url, data=data)
+                if response.status_code != 200:
+                    print(f"❌ Telegram chunk {chunk_count} failed: {response.text}")
+                else:
+                    print(f"✅ Sent chunk {chunk_count} ({len(current_chunk)} chars)")
+            
+            print(f"✅ All {chunk_count} Telegram chunks sent")
+            return True
+            
     except Exception as e:
-        print(f"Failed to send Telegram message: {e}")
+        print(f"❌ Failed to send Telegram message: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
