@@ -2,8 +2,8 @@ name: Daily AI Briefer
 
 on:
   schedule:
-    # Run daily at 8 AM UTC
-    - cron: '0 8 * * *'
+    # Run daily at 2:30 AM UTC
+    - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -41,18 +41,26 @@ jobs:
       if: github.event.inputs.mode == 'daily' || github.event_name == 'schedule'
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: python main.py
 
     - name: Run Interview Prep
       if: github.event.inputs.mode == 'interview'
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: python main.py interview "${{ github.event.inputs.company }}"

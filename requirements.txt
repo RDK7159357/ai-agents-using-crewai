@@ -4,3 +4,5 @@ elevenlabs
 python-dotenv
 requests
 flask
+colorama
+litellm
