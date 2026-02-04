@@ -27,9 +27,29 @@ def get_current_model_name(llm):
     return "unknown"
 
 def extract_model_provider(model_string):
-    """Extract provider name from model string like 'groq/llama-3.1-8b-instant'"""
+    """Extract provider short name from model string"""
+    # Handle format: "google/gemini-2.5-flash" -> "gemini"
     if '/' in model_string:
-        return model_string.split('/')[0]
+        provider = model_string.split('/')[0]
+        provider_map = {
+            "google": "gemini",
+            "groq": "groq",
+            "openrouter": "openrouter",
+            "mistral": "mistral"
+        }
+        return provider_map.get(provider, provider)
+    
+    # Handle format: "gemini-2.5-flash" or "llama-3.1-8b-instant" -> extract base name
+    # Map model names to their short names
+    if model_string.startswith("gemini"):
+        return "gemini"
+    elif model_string.startswith("llama"):
+        return "groq"
+    elif model_string.startswith("mistral"):
+        return "mistral"
+    elif "meta-llama" in model_string:
+        return "openrouter"
+    
     return model_string
 
 def daily_brief():
