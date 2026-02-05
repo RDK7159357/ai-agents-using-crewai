@@ -18,6 +18,30 @@ See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + Gi
 
 ## Setup
 
+### ⚡ Serverless Setup (Recommended - No Local Hosting!)
+
+Your bot is **100% serverless** - everything runs in the cloud!
+
+**Daily Brief:** Runs automatically at 6:00 AM IST every day
+**On-Demand:** Send `/brief` or `/interview <company>` in Telegram anytime (optional webhook setup)
+
+**Quick Setup:**
+1. See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions (15 minutes)
+2. Or read [SERVERLESS_SETUP.md](SERVERLESS_SETUP.md) for detailed documentation
+
+**What's Deployed:**
+- ✅ GitHub Actions Workflow - Runs daily + on-demand
+- ✅ Vercel Serverless Webhook - Handles Telegram commands (optional)
+- ✅ Free tier APIs - Everything costs $0/month
+
+**That's it! No local setup needed.** 🎉
+
+---
+
+### Local Development (Optional)
+
+If you want to run locally or test:
+
 1. Clone the repository
 
 2. Create a virtual environment:
@@ -31,14 +55,7 @@ See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + Gi
    pip install -r requirements.txt
    ```
 
-4. Test your API keys:
-   ```bash
-   python test_apis.py
-   ```
-   
-   This will verify all your API keys are working correctly before you start!
-
-5. Create a `.env` file with your API keys:
+4. Create a `.env` file with your API keys:
    ```env
    # Required - 100% FREE
    GOOGLE_API_KEY=your_gemini_api_key          # FREE: 1500 requests/day!
@@ -52,6 +69,20 @@ See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + Gi
    OPENROUTER_API_KEY=your_openrouter_api_key   # FREE tier available
    MISTRAL_API_KEY=your_mistral_api_key         # FREE tier available
    PREFERRED_MODEL=gemini                       # Options: gemini, gemini-2.5, groq, openrouter, mistral
+   ```
+
+5. Test your API keys:
+   ```bash
+   python test_apis.py
+   ```
+
+6. Run locally:
+   ```bash
+   # Daily Brief
+   python main.py
+   
+   # Interview Prep
+   python main.py interview "Google"
    ```
    
    **This app uses 100% FREE tier models - no paid APIs required!**
@@ -128,120 +159,21 @@ Additional Free Tier Providers (Optional):
 
 ## Usage
 
-### Option 1: Fully Serverless (Recommended - No local running needed!)
+### Telegram Commands
 
-Deploy the webhook to Vercel and use Telegram webhooks instead of polling.
+Send these commands to your bot:
 
-**Setup:**
-
-1. Install Vercel CLI:
-   ```bash
-   npm install -g vercel
-   ```
-
-2. Push your code to GitHub
-
-3. Deploy to Vercel:
-   ```bash
-   vercel
-   ```
-
-4. Add environment variables in Vercel dashboard:
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-   - `GITHUB_TOKEN`
-   - `GITHUB_REPO` (format: username/repo-name)
-
-5. Add GitHub secrets (Settings → Secrets and variables → Actions):
-   - `GOOGLE_API_KEY`
-   - `SERPER_API_KEY`
-   - `ELEVENLABS_API_KEY`
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-
-6. Set up Telegram webhook (run once):
-   ```bash
-   python3.12 setup_webhook.py
-   # Enter your Vercel URL: https://your-app.vercel.app/webhook
-   ```
-
-7. Done! Now just send commands in Telegram:
-   ```
-   /brief
-   /interview Google
-   ```
-
-Everything runs serverless - Vercel handles Telegram webhooks, GitHub Actions runs the agents!
-
-### Option 2: GitHub Actions with Local Bot
-
-This approach runs the agents on GitHub's infrastructure, so you don't need a server running 24/7.
-
-**Setup:**
-
-1. Push your code to GitHub
-2. Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
-   - `GOOGLE_API_KEY`
-   - `SERPER_API_KEY`
-   - `ELEVENLABS_API_KEY`
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-
-3. Add these to your `.env` file locally:
-   ```env
-   GITHUB_TOKEN=your_github_personal_access_token
-   GITHUB_REPO=username/repo-name
-   ```
-
-4. Create a GitHub Personal Access Token:
-   - Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - Click "Generate new token (classic)"
-   - Select `repo` scope (full control of private repositories)
-   - Copy the token to your `.env` file
-
-5. Run the Telegram bot locally:
-   ```bash
-   python3.12 telegram_bot_github.py
-   ```
-
-6. Send commands in Telegram:
-   ```
-   /brief
-   /interview Google
-   ```
-
-The bot will trigger GitHub Actions workflows that run the agents in the cloud and send results to your Telegram!
-
-### Option 2: Command Line (Local)
-
-**Daily Brief:**
-```bash
-python3.12 main.py
+```
+/brief              - Get today's tech news briefing
+/interview Google   - Get interview prep for a company
+/help              - Show help message
 ```
 
-**Interview Prep:**
-```bash
-python3.12 main.py interview "Google"
-```
+### Daily Schedule
 
-### Option 3: Telegram Bot (Local)
+The bot automatically sends you a tech brief every day at **6:00 AM IST**.
 
-**Start the bot:**
-```bash
-python3.12 main.py bot
-```
-
-**Available Commands:**
-- `/brief` - Get today's tech news briefing
-- `/interview <company>` - Get interview prep for a company
-- `/help` - Show help message
-
-**Examples:**
-```
-/brief
-/interview Google
-/interview OpenAI
-```
+No action needed - it just works! 🤖
 
 ## Features
 
