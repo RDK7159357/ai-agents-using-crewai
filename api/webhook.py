@@ -16,14 +16,18 @@ def send_telegram_message(text):
     except Exception as e:
         print(f"Failed to send message: {e}")
 
-def trigger_github_action(event_type, payload=None):
+def trigger_workflow_dispatch(workflow_id, inputs=None):
     try:
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/dispatches"
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow_id}/dispatches"
         headers = {
             "Accept": "application/vnd.github.v3+json",
-            "Authorization": f"token {GITHUB_TOKEN}"
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "X-GitHub-Api-Version": "2022-11-28"
         }
-        data = {"event_type": event_type, "client_payload": payload or {}}
+        data = {
+            "ref": "main",
+            "inputs": inputs or {}
+        }
         response = requests.post(url, json=data, headers=headers)
         return response.status_code == 204
     except Exception as e:
@@ -50,7 +54,7 @@ def handler(request):
         
         if text.startswith('/brief'):
             send_telegram_message("🚀 Triggering daily tech brief...\n<i>This may take 2-3 minutes.</i>")
-            trigger_github_action("run-brief")
+            trigger_workflow_dispatch("briefer.yml", {"mode": "daily"})
         
         elif text.startswith('/interview'):
             parts = text.split(maxsplit=1)
@@ -59,7 +63,7 @@ def handler(request):
             else:
                 company = parts[1]
                 send_telegram_message(f"🚀 Triggering interview prep for {company}...")
-                trigger_github_action("run-interview", {"company": company})
+                trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company})
         
         elif text.startswith('/help') or text == '/start':
             help_text = """<b>🤖 AI Agent Briefer Bot</b>

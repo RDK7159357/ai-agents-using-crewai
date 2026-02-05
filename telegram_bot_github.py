@@ -34,31 +34,32 @@ class TelegramBot:
         except Exception as e:
             print(f"Failed to send message: {e}")
     
-    def trigger_github_action(self, event_type, payload=None):
-        """Trigger a GitHub Actions workflow via repository dispatch"""
+    def trigger_workflow_dispatch(self, workflow_id, inputs=None):
+        """Trigger a GitHub Actions workflow via workflow_dispatch"""
         if not self.github_token or not self.github_repo:
             self.send_message("❌ GitHub integration not configured. Please set GITHUB_TOKEN and GITHUB_REPO.")
             return
         
         try:
-            url = f"https://api.github.com/repos/{self.github_repo}/dispatches"
+            url = f"https://api.github.com/repos/{self.github_repo}/actions/workflows/{workflow_id}/dispatches"
             headers = {
                 "Accept": "application/vnd.github.v3+json",
-                "Authorization": f"token {self.github_token}"
+                "Authorization": f"Bearer {self.github_token}",
+                "X-GitHub-Api-Version": "2022-11-28"
             }
             data = {
-                "event_type": event_type,
-                "client_payload": payload or {}
+                "ref": "main",  # or "master" depending on your default branch
+                "inputs": inputs or {}
             }
             
             response = requests.post(url, json=data, headers=headers)
             
             if response.status_code == 204:
-                print(f"✅ Triggered GitHub Action: {event_type}")
+                print(f"✅ Triggered workflow: {workflow_id}")
                 return True
             else:
-                print(f"❌ Failed to trigger action: {response.status_code} - {response.text}")
-                self.send_message(f"❌ Failed to trigger workflow. Status: {response.status_code}")
+                print(f"❌ Failed to trigger workflow: {response.status_code} - {response.text}")
+                self.send_message(f"❌ Failed to trigger workflow. Status: {response.status_code}\n{response.text}")
                 return False
                 
         except Exception as e:
@@ -90,7 +91,7 @@ class TelegramBot:
         
         if text.startswith("/brief"):
             self.send_message("🚀 Triggering daily tech brief on GitHub Actions...\n<i>This may take 2-3 minutes.</i>")
-            self.trigger_github_action("run-brief")
+            self.trigger_workflow_dispatch("briefer.yml", {"mode": "daily"})
         
         elif text.startswith("/interview"):
             parts = text.split(maxsplit=1)
@@ -99,7 +100,7 @@ class TelegramBot:
             else:
                 company = parts[1]
                 self.send_message(f"🚀 Triggering interview prep for {company} on GitHub Actions...\n<i>This may take 2-3 minutes.</i>")
-                self.trigger_github_action("run-interview", {"company": company})
+                self.trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company})
         
         elif text.startswith("/help") or text == "/start":
             help_text = """<b>🤖 AI Agent Briefer Bot</b>

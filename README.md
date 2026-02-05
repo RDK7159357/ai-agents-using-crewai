@@ -2,12 +2,19 @@
 
 An AI-powered daily briefing agent that delivers tech news and interview preparation through Telegram.
 
+## 🚀 Quick Start - Serverless Deployment
+
+**Want to run this 100% serverless with no local hosting?**
+
+See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + GitHub Actions (completely free!)
+
 ## Features
 
 - **Daily Tech Brief**: Get curated technology news with specific details, metrics, and announcements
 - **Interview Prep**: Research companies and generate talking points for interviews
 - **Telegram Bot**: Control everything from your Telegram chat
 - **Voice Output**: Hear your briefings with ElevenLabs text-to-speech
+- **Serverless**: Deploy to Vercel for 100% cloud operation
 
 ## Setup
 
