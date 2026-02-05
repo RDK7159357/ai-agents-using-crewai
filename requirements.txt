@@ -6,3 +6,4 @@ requests
 flask
 colorama
 litellm
+fastapi
