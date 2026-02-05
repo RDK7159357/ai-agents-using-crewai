@@ -1,5 +1,5 @@
 # Vercel Serverless Function for Telegram Webhook
-from flask import request, jsonify
+import json
 import os
 import requests
 
@@ -12,7 +12,7 @@ def send_telegram_message(text):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         data = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
-        requests.post(url, data=data)
+        requests.post(url, data=data, timeout=10)
     except Exception as e:
         print(f"Failed to send message: {e}")
 
@@ -28,29 +28,36 @@ def trigger_workflow_dispatch(workflow_id, inputs=None):
             "ref": "main",
             "inputs": inputs or {}
         }
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(url, json=data, headers=headers, timeout=10)
         return response.status_code == 204
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error triggering workflow: {e}")
         return False
 
 def handler(request):
     """Vercel serverless function handler"""
-    if request.method != 'POST':
-        return jsonify({"error": "Method not allowed"}), 405
-    
     try:
-        data = request.get_json()
+        if request.method == 'GET':
+            return {"statusCode": 200, "body": json.dumps({"message": "Webhook is running"})}
         
-        if 'message' not in data:
-            return jsonify({"ok": True})
+        if request.method != 'POST':
+            return {"statusCode": 405, "body": json.dumps({"error": "Method not allowed"})}
         
-        message = data['message']
+        # Parse the request body
+        body = request.get_json() if hasattr(request, 'get_json') else json.loads(request.body)
+        
+        if 'message' not in body:
+            return {"statusCode": 200, "body": json.dumps({"ok": True})}
+        
+        message = body['message']
         chat_id = str(message.get('chat', {}).get('id'))
         text = message.get('text', '')
         
-        if chat_id != TELEGRAM_CHAT_ID:
-            return jsonify({"ok": True})
+        # Only process messages from the configured chat
+        if chat_id != str(TELEGRAM_CHAT_ID):
+            return {"statusCode": 200, "body": json.dumps({"ok": True})}
+        
+        print(f"📱 Received: {text}")
         
         if text.startswith('/brief'):
             send_telegram_message("🚀 Triggering daily tech brief...\n<i>This may take 2-3 minutes.</i>")
@@ -59,24 +66,30 @@ def handler(request):
         elif text.startswith('/interview'):
             parts = text.split(maxsplit=1)
             if len(parts) < 2:
-                send_telegram_message("❌ Usage: /interview <company_name>")
+                send_telegram_message("❌ Usage: /interview <company_name>\n\nExample: /interview Google")
             else:
                 company = parts[1]
-                send_telegram_message(f"🚀 Triggering interview prep for {company}...")
+                send_telegram_message(f"🚀 Triggering interview prep for {company}...\n<i>This may take 2-3 minutes.</i>")
                 trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company})
         
         elif text.startswith('/help') or text == '/start':
             help_text = """<b>🤖 AI Agent Briefer Bot</b>
 
-<b>/brief</b> - Daily tech news
-<b>/interview &lt;company&gt;</b> - Interview prep
-<b>/help</b> - Show help
+<b>/brief</b> - Daily tech news briefing
+<b>/interview &lt;company&gt;</b> - Interview prep for a company
+<b>/help</b> - Show this help message
+
+Examples:
+• /brief
+• /interview Google
 
 <i>Serverless on Vercel + GitHub Actions!</i>"""
             send_telegram_message(help_text)
         
-        return jsonify({"ok": True})
+        return {"statusCode": 200, "body": json.dumps({"ok": True})}
     
     except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"ok": False}), 500
+        print(f"Error in webhook handler: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"statusCode": 500, "body": json.dumps({"ok": False, "error": str(e)})}
