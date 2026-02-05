@@ -66,10 +66,15 @@ def get_llm(skip_models=None):
     # Try each model in order (skip already-tried ones)
     for model_name in fallback_order:
         if model_name in skip_models:
+            print(f"⏭️  Skipping {model_name} (already tried)")
             continue  # Skip models that already failed
             
         config = models_config[model_name]
         api_key = os.getenv(config["api_key_env"])
+        
+        if not api_key:
+            print(f"⚠️ {config['name']} - API key not configured ({config['api_key_env']})")
+            continue
         
         if api_key:
             try:
@@ -90,8 +95,8 @@ def get_llm(skip_models=None):
                 return LLM(
                     model=full_model,
                     api_key=api_key,
-                    max_retries=3,
-                    timeout=180,
+                    max_retries=2,  # Reduced to fail faster
+                    timeout=120,  # Reduced timeout
                     temperature=0.7
                 )
             except Exception as e:

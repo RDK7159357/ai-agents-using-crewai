@@ -63,6 +63,18 @@ def daily_brief():
     """Execute daily brief with runtime fallback mechanism"""
     print("🚀 Starting daily brief...")
     
+    # Diagnose available API keys
+    available_keys = []
+    for key_name in ["GOOGLE_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "MISTRAL_API_KEY"]:
+        if os.getenv(key_name):
+            available_keys.append(key_name.replace("_API_KEY", "").lower())
+    
+    print(f"🔑 Available API keys: {', '.join(available_keys) if available_keys else 'NONE!'}")
+    
+    if not available_keys:
+        send_telegram("❌ <b>Configuration Error</b>\n\n<i>No API keys found! Please configure at least one of: GOOGLE_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, MISTRAL_API_KEY</i>")
+        return
+    
     # Show which model is being used
     preferred = os.getenv("PREFERRED_MODEL", "gemini")
     print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
@@ -85,6 +97,12 @@ def daily_brief():
             current_model = extract_model_provider(current_llm.model)
             
             print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+            
+            # Add progressive backoff delay for retries
+            if current_attempt > 1:
+                delay = (current_attempt - 1) * 5  # 5s, 10s, 15s
+                print(f"⏱️  Waiting {delay}s before retry to avoid rate limits...")
+                time.sleep(delay)
             
             # Create fresh agent with current LLM
             fresh_news_scout = create_news_scout_agent(current_llm)
@@ -155,6 +173,10 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             # Execute the task
             result = crew.kickoff()
             
+            # Validate result before sending
+            if not result or not result.raw or len(result.raw.strip()) < 100:
+                raise Exception(f"Incomplete result from {current_model}: only {len(result.raw) if result and result.raw else 0} characters")
+            
             # Format and send to Telegram with proper HTML formatting
             from datetime import datetime
             today = datetime.now().strftime("%B %d, %Y")
@@ -181,7 +203,8 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             
         except Exception as e:
             error_str = str(e)
-            print(f"\n❌ Error with {current_model}: {error_str[:200]}")
+            error_type = type(e).__name__
+            print(f"\n❌ Error with {current_model}: [{error_type}] {error_str[:200]}")
             
             # Track this model as tried
             tried_models.add(current_model)
@@ -196,14 +219,14 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
                 print(f"\n❌ All {max_retries} attempts failed. No more models to try.")
                 
                 # Send Telegram notification only after all attempts fail
-                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str:
-                    send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n{error_str[:500]}\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later, or add more API keys.</i>")
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str or "RateLimitError" in error_str or "rate_limited" in error_str:
+                    send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n<code>{error_type}: {error_str[:400]}</code>\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later, or add more API keys.</i>")
                     print("\n🔧 Rate limit solutions:")
                     print("1. Wait 24 hours for quota reset")
                     print("2. Add more API keys to .env file")
                     print("3. Upgrade to paid API tiers")
                 else:
-                    send_telegram(f"❌ <b>Critical Error in Daily Brief</b>\n\n<code>{error_str[:500]}</code>\n\n<i>All fallback models failed. Please check API keys and try again.</i>")
+                    send_telegram(f"❌ <b>Critical Error in Daily Brief</b>\n\n<b>Task execution failed:</b> <code>{error_type}: {error_str[:400]}</code>\n\n<i>All fallback models failed. Please check API keys and try again.</i>")
                     print(f"\n🔧 Troubleshooting:")
                     print("1. Verify all API keys in .env file")
                     print("2. Check API key validity and quota")
