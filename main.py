@@ -235,12 +235,28 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
 def interview_prep(company):
     print(f"🚀 Starting interview prep for {company}...")
     
-    # Add delay to avoid rate limits
-    time.sleep(2)
+    # Reset tried models for this execution
+    reset_tried_models()
+    tried_models = set()
+    max_retries = 4  # Try all models: gemini, groq, openrouter, mistral
+    current_attempt = 0
     
-    task = Task(
-        description=f"""Research {company} and find SPECIFIC, CONCRETE information for interview preparation.
+    while current_attempt < max_retries:
+        current_attempt += 1
         
+        # Get next LLM to try
+        current_llm = get_llm(skip_models=tried_models)
+        current_model = extract_model_provider(current_llm.model)
+        
+        print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+        
+        # Add delay to avoid rate limits
+        time.sleep(2)
+        
+        try:
+            task = Task(
+                description=f"""Research {company} and find SPECIFIC, CONCRETE information for interview preparation.
+                
 REQUIREMENTS:
 - Identify SPECIFIC technologies in their stack (exact versions, frameworks, tools)
 - Find RECENT developments: latest product launches, features, acquisitions (with dates)
@@ -248,66 +264,71 @@ REQUIREMENTS:
 - Reference ACTUAL blog posts, GitHub repos, tech talks (with titles and dates)
 - Identify SPECIFIC challenges or problems they're solving
 - Find REAL examples of their engineering culture, practices, or values
-        
+                
 Avoid generic advice. Every talking point must be verifiable and specific to {company}.""",
-        expected_output=f"""5 specific, well-researched talking points with CONCRETE details:
-        
+                expected_output=f"""5 specific, well-researched talking points with CONCRETE details:
+                
 💡 **[Specific Topic/Technology]**
 • Specific fact 1 (with numbers, dates, or exact technologies)
 • Specific fact 2 (actual product feature, blog post title, or initiative)
 • How to use this in interview (concrete question to ask or value to demonstrate)
 
-Example:
-💡 **Their Kubernetes Migration at Scale**
-• Migrated 10,000+ microservices to Kubernetes 1.28 in Q4 2025 (mentioned in Dec 2025 blog post)
-• Bu
-    # Configure crew with limits to reduce API usage
-    crew = Crew(
-        agents=[company_researcher], 
-        tasks=[task],
-        max_rpm=10,  # Max 10 requests per minute
-        verbose=True
-    osts by 35%
-• Open-sourced their service mesh configuration tool on GitHub (2,300+ stars)
-• Interview angle: Ask about their approach to observability during the migration, mention experience with similar scale challenges
-
 Every point should reference actual, verifiable information about {company}.""",
-        agent=company_researcher
-    )
-    crew = Crew(agents=[company_researcher], tasks=[task])
-    
-    try:
-        result = crew.kickoff()
-        
-        # Format and send to Telegram
-        from datetime import datetime
-        today = datetime.now().strftime("%B %d, %Y")
-        
-        formatted_content = format_for_telegram(result.raw)
-        message = f"""<b>💼 Interview Prep: {company}</b>
+                agent=company_researcher
+            )
+            
+            crew = Crew(
+                agents=[company_researcher], 
+                tasks=[task],
+                llm=current_llm,
+                max_rpm=10,
+                verbose=True
+            )
+            
+            result = crew.kickoff()
+            
+            # Success! Format and send to Telegram
+            from datetime import datetime
+            today = datetime.now().strftime("%B %d, %Y")
+            
+            formatted_content = format_for_telegram(result.raw)
+            message = f"""<b>💼 Interview Prep: {company}</b>
 <i>Prepared on {today}</i>
 
 {formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
 <i>Good luck! 🍀</i>"""
-        send_telegram(message)
-        print(result.raw)
-    except Exception as e:
-        error_msg = f"Error during interview prep: {e}"
-        print(error_msg)
-        
-        # Check if it's a rate limit error
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "TooManyRequests" in str(e):
-            send_telegram(f"⚠️ <b>Rate Limit Error</b>\n\n{str(e)[:500]}\n\n<i>This usually means you've exceeded the Gemini API free tier quota.\n\nPlease wait and try again later, or upgrade to a paid tier.</i>")
-            print("\n❌ Rate limit exceeded. Cannot retry - quota exhausted.")
-            print("\nSolutions:")
-            print("1. Wait 24 hours for quota reset")
-            print("2. Upgrade to paid Gemini API tier")
-            print("3. Switch to gemini-1.5-flash (1500 req/day free tier)")
-        else:
-            # For other errors, send error notification
-            send_telegram(f"❌ <b>Error in Interview Prep</b>\n\n<code>{str(e)[:500]}</code>")
+            send_telegram(message)
+            print(f"\n✅ Interview prep completed successfully with {current_model}!")
+            print(result.raw)
+            return
+            
+        except Exception as e:
+            error_str = str(e)
+            print(f"\n❌ Error with {current_model}: {error_str[:200]}")
+            
+            # Track this model as tried
+            tried_models.add(current_model)
+            
+            # Check if we should retry
+            if current_attempt < max_retries:
+                print(f"⚠️ Switching to next model...")
+                time.sleep(2)  # Brief delay before retry
+                continue
+            else:
+                # All retries exhausted
+                print(f"\n❌ All {max_retries} attempts failed. No more models to try.")
+                
+                # Send error notification only after all attempts fail
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str or "rate_limit" in error_str.lower():
+                    send_telegram(f"⚠️ <b>Rate Limit Error - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later.</i>")
+                    print("\n🔧 Rate limit solutions:")
+                    print("1. Wait 24 hours for quota reset")
+                    print("2. Upgrade to paid API tiers")
+                else:
+                    send_telegram(f"❌ <b>Critical Error in Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All fallback models failed. Please check API keys.</i>")
+                return
 
 if __name__ == "__main__":
     import sys
