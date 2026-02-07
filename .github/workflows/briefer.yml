@@ -18,6 +18,10 @@ on:
         description: 'Company name (for interview mode)'
         required: false
         type: string
+      chat_id:
+        description: 'Telegram Chat ID (who triggered this)'
+        required: false
+        type: string
 
 jobs:
   briefer:
@@ -47,7 +51,7 @@ jobs:
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_CHAT_ID: ${{ github.event.inputs.chat_id || secrets.TELEGRAM_CHAT_ID }}
         PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: python main.py
 
@@ -61,6 +65,6 @@ jobs:
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_CHAT_ID: ${{ github.event.inputs.chat_id || secrets.TELEGRAM_CHAT_ID }}
         PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: python main.py interview "${{ github.event.inputs.company }}"

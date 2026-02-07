@@ -70,7 +70,7 @@ class handler(BaseHTTPRequestHandler):
             # Process commands for ALL users (bot is now public!)
             if text.startswith('/brief'):
                 send_telegram_message("🚀 Triggering daily tech brief...\n<i>This may take 2-3 minutes.</i>", chat_id)
-                trigger_workflow_dispatch("briefer.yml", {"mode": "daily"})
+                trigger_workflow_dispatch("briefer.yml", {"mode": "daily", "chat_id": chat_id})
             
             elif text.startswith('/interview'):
                 parts = text.split(maxsplit=1)
@@ -79,7 +79,7 @@ class handler(BaseHTTPRequestHandler):
                 else:
                     company = parts[1]
                     send_telegram_message(f"🚀 Triggering interview prep for {company}...\n<i>This may take 2-3 minutes.</i>", chat_id)
-                    trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company})
+                    trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company, "chat_id": chat_id})
             
             elif text.startswith('/help') or text == '/start':
                 help_text = """<b>🤖 AI Agent Briefer Bot</b>
