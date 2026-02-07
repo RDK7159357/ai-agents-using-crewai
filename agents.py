@@ -29,22 +29,34 @@ def get_llm(skip_models=None):
     preferred_model = os.getenv("PREFERRED_MODEL", "gemini").lower()
     
     models_config = {
+        "groq": {
+            "model": "llama-3.1-8b-instant",
+            "api_key_env": "GROQ_API_KEY",
+            "name": "Groq Llama 3.1 8B Instant",
+            "free_tier": "unlimited ⭐"
+        },
         "gemini": {
             "model": "gemini-2.5-flash",
             "api_key_env": "GOOGLE_API_KEY",
             "name": "Gemini 2.5 Flash",
             "free_tier": "10 req/min"
         },
-        "groq": {
-            "model": "llama-3.1-8b-instant",
-            "api_key_env": "GROQ_API_KEY",
-            "name": "Groq Llama 3.1 8B Instant",
-            "free_tier": "unlimited"
+        "together": {
+            "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+            "api_key_env": "TOGETHER_API_KEY",
+            "name": "Together AI Llama 3.1 8B",
+            "free_tier": "$25 free credits"
+        },
+        "huggingface": {
+            "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+            "api_key_env": "HUGGINGFACE_API_KEY",
+            "name": "Hugging Face Llama 3 8B",
+            "free_tier": "1000 req/day"
         },
         "openrouter": {
-            "model": "upstage/solar-pro-3:free",
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
             "api_key_env": "OPENROUTER_API_KEY",
-            "name": "OpenRouter Solar Pro 3 (free)",
+            "name": "OpenRouter Llama 3.1 8B (free)",
             "free_tier": "limited"
         },
         "mistral": {
@@ -55,8 +67,8 @@ def get_llm(skip_models=None):
         }
     }
     
-    # Fallback order: Try Gemini 2.5 Flash first, then fallbacks
-    fallback_order = ["gemini", "groq", "openrouter", "mistral"]
+    # Fallback order: Groq first (unlimited!), then fallbacks
+    fallback_order = ["groq", "together", "huggingface", "gemini", "openrouter", "mistral"]
     
     # Move preferred model to front if specified
     if preferred_model in models_config and preferred_model != "gemini":
@@ -85,6 +97,10 @@ def get_llm(skip_models=None):
                     full_model = f"google/{config['model']}"
                 elif model_name == "groq":
                     full_model = f"groq/{config['model']}"
+                elif model_name == "together":
+                    full_model = f"together_ai/{config['model']}"
+                elif model_name == "huggingface":
+                    full_model = f"huggingface/{config['model']}"
                 elif model_name == "openrouter":
                     full_model = f"openrouter/{config['model']}"
                 elif model_name == "mistral":
@@ -108,10 +124,12 @@ def get_llm(skip_models=None):
         "No free-tier LLM API keys found!\n\n"
         "This app uses FREE TIER models with automatic fallback.\n"
         "Please set at least one of:\n"
-        "- GROQ_API_KEY (Groq Llama 3.1) - RECOMMENDED - unlimited free tier\n"
-        "- GOOGLE_API_KEY (Gemini 1.5 Flash)\n"
-        "- OPENROUTER_API_KEY (OpenRouter Llama 3.1)\n"
-        "- MISTRAL_API_KEY (Mistral Small)\n\n"
+        "- GROQ_API_KEY (Groq Llama 3.1) - ⭐ RECOMMENDED - UNLIMITED free tier\n"
+        "- TOGETHER_API_KEY (Together AI) - $25 free credits (~10K requests)\n"
+        "- HUGGINGFACE_API_KEY (HuggingFace) - 1000 requests/day free\n"
+        "- GOOGLE_API_KEY (Gemini 2.5 Flash) - 10 req/min free\n"
+        "- OPENROUTER_API_KEY (OpenRouter Llama 3.1) - Limited free tier\n"
+        "- MISTRAL_API_KEY (Mistral Small) - Limited free tier\n\n"
         "Get keys here:\n"
         "- Groq: https://console.groq.com/keys (RECOMMENDED)\n"
         "- Gemini: https://aistudio.google.com/app/apikey\n"

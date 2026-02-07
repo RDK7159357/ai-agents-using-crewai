@@ -57,18 +57,26 @@ If you want to run locally or test:
 
 4. Create a `.env` file with your API keys:
    ```env
-   # Required - 100% FREE
-   GOOGLE_API_KEY=your_gemini_api_key          # FREE: 1500 requests/day!
-   SERPER_API_KEY=your_serper_api_key          # FREE tier available
+   # Required - At least ONE LLM API key
+   GROQ_API_KEY=your_groq_api_key               # ⭐ RECOMMENDED - UNLIMITED free tier!
+   
+   # Alternative/Backup LLM APIs (pick any combination)
+   TOGETHER_API_KEY=your_together_api_key       # FREE: $25 credits (~10K requests)
+   HUGGINGFACE_API_KEY=your_hf_api_key          # FREE: 1000 requests/day
+   GOOGLE_API_KEY=your_gemini_api_key           # FREE: 10 requests/min
+   OPENROUTER_API_KEY=your_openrouter_api_key   # FREE: Limited tier
+   MISTRAL_API_KEY=your_mistral_api_key         # FREE: Limited tier
+   
+   # Required - Search API
+   SERPER_API_KEY=your_serper_api_key          # FREE: 2500 searches/month
+   
+   # Required - Telegram
    TELEGRAM_BOT_TOKEN=your_telegram_bot_token  # FREE
    TELEGRAM_CHAT_ID=your_telegram_chat_id      # FREE
    
-   # Optional - FREE
-   ELEVENLABS_API_KEY=your_elevenlabs_api_key  # FREE: 10k chars/month
-   GROQ_API_KEY=your_groq_api_key               # FREE tier available
-   OPENROUTER_API_KEY=your_openrouter_api_key   # FREE tier available
-   MISTRAL_API_KEY=your_mistral_api_key         # FREE tier available
-   PREFERRED_MODEL=gemini                       # Options: gemini, gemini-2.5, groq, openrouter, mistral
+   # Optional
+   ELEVENLABS_API_KEY=your_elevenlabs_api_key  # FREE: 10k chars/month (voice)
+   PREFERRED_MODEL=groq                         # Options: groq, together, huggingface, gemini, openrouter, mistral
    ```
 
 5. Test your API keys:
@@ -89,19 +97,28 @@ If you want to run locally or test:
 
 ### Getting API Keys (All FREE!)
 
-**Required (100% Free):**
-- **Google Gemini**: https://aistudio.google.com/app/apikey - **FREE: 1,500 requests/day**
-- **Serper** (for web search): https://serper.dev/ - FREE tier: 2,500 searches/month
-- **Telegram Bot**: Talk to [@BotFather](https://t.me/botfather) on Telegram - FREE
-- **Telegram Chat ID**: Send a message to your bot, then visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` to find your chat_id - FREE
+**Required - LLM (Pick at least ONE, more = better fallback):**
+- **Groq** ⭐ RECOMMENDED: https://console.groq.com/keys - **UNLIMITED free tier!**
+- **Together AI**: https://together.ai - $25 free credits (≈10K requests)
+- **Hugging Face**: https://huggingface.co/settings/tokens - 1,000 requests/day free
+- **Google Gemini**: https://aistudio.google.com/app/apikey - 10 requests/min free
+- **OpenRouter**: https://openrouter.ai/keys - Limited free tier
+- **Mistral**: https://console.mistral.ai/api-keys - Limited free tier
 
-**Optional (Free tier available):**
-- **ElevenLabs** (for voice): https://elevenlabs.io/ - FREE tier: 10k characters/month
-- **Groq**: https://console.groq.com/keys - FREE tier available
-- **OpenRouter**: https://openrouter.ai/keys - FREE tier available
-- **Mistral**: https://console.mistral.ai/api-keys - FREE tier available
+**Required - Other Services:**
+- **Serper** (web search): https://serper.dev/ - FREE: 2,500 searches/month
+- **Telegram Bot**: Talk to [@BotFather](https://t.me/botfather) - FREE
+- **Telegram Chat ID**: Message your bot, then visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` - FREE
 
-**💰 This entire setup costs $0 - everything runs on free tiers!**
+**Optional:**
+- **ElevenLabs** (voice): https://elevenlabs.io/ - FREE: 10k chars/month
+
+**💰 Best Setup for Public Bot:**
+1. Get Groq API key (unlimited, no rate limits!)
+2. Add 2-3 backup APIs (Together, HuggingFace, Gemini)
+3. Bot auto-switches if one hits limits
+
+**This entire setup costs $0 - everything runs on free tiers!**
 
 ## Testing Your Setup
 
