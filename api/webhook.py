@@ -3,11 +3,33 @@ import json
 import os
 import requests
 from http.server import BaseHTTPRequestHandler
+import time
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")
+
+# In-memory cache to prevent duplicate webhook processing (Telegram can send duplicates)
+# Maps update_id -> timestamp
+_processed_updates = {}
+_cache_expiry_seconds = 60  # Clear old entries after 60 seconds
+
+def _cleanup_cache():
+    """Remove old entries from processed updates cache"""
+    current_time = time.time()
+    expired = [uid for uid, ts in _processed_updates.items() if current_time - ts > _cache_expiry_seconds]
+    for uid in expired:
+        del _processed_updates[uid]
+
+def _is_duplicate_update(update_id):
+    """Check if this update was already processed"""
+    _cleanup_cache()
+    if update_id in _processed_updates:
+        print(f"🔁 Duplicate webhook detected (update_id: {update_id}), skipping...")
+        return True
+    _processed_updates[update_id] = time.time()
+    return False
 
 def send_telegram_message(text, chat_id=None):
     """Send a message to Telegram"""
@@ -52,6 +74,15 @@ class handler(BaseHTTPRequestHandler):
             data = json.loads(body.decode('utf-8'))
             
             print(f"📨 Received webhook: {data}")
+            
+            # Check for duplicate webhooks (Telegram sometimes sends duplicates)
+            update_id = data.get('update_id')
+            if update_id and _is_duplicate_update(update_id):
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True}).encode())
+                return
             
             if 'message' not in data:
                 self.send_response(200)
