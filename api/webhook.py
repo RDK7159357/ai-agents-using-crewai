@@ -9,13 +9,15 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")
 
-def send_telegram_message(text):
+def send_telegram_message(text, chat_id=None):
     """Send a message to Telegram"""
     try:
+        # Use provided chat_id or fall back to TELEGRAM_CHAT_ID
+        target_chat_id = chat_id or TELEGRAM_CHAT_ID
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        data = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+        data = {"chat_id": target_chat_id, "text": text, "parse_mode": "HTML"}
         requests.post(url, data=data, timeout=10)
-        print(f"✅ Telegram message sent")
+        print(f"✅ Telegram message sent to {target_chat_id}")
     except Exception as e:
         print(f"❌ Failed to send message: {e}")
 
@@ -63,29 +65,20 @@ class handler(BaseHTTPRequestHandler):
             text = message.get('text', '')
             
             print(f"Chat ID: {chat_id}, Text: {text}")
-            
-            # Only process from our chat
-            if chat_id != str(TELEGRAM_CHAT_ID):
-                print(f"❌ Chat ID mismatch: {chat_id} != {TELEGRAM_CHAT_ID}")
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({"ok": True}).encode())
-                return
-            
             print(f"📱 Processing command: {text}")
             
+            # Process commands for ALL users (bot is now public!)
             if text.startswith('/brief'):
-                send_telegram_message("🚀 Triggering daily tech brief...\n<i>This may take 2-3 minutes.</i>")
+                send_telegram_message("🚀 Triggering daily tech brief...\n<i>This may take 2-3 minutes.</i>", chat_id)
                 trigger_workflow_dispatch("briefer.yml", {"mode": "daily"})
             
             elif text.startswith('/interview'):
                 parts = text.split(maxsplit=1)
                 if len(parts) < 2:
-                    send_telegram_message("❌ Usage: /interview <company_name>\n\nExample: /interview Google")
+                    send_telegram_message("❌ Usage: /interview <company_name>\n\nExample: /interview Google", chat_id)
                 else:
                     company = parts[1]
-                    send_telegram_message(f"🚀 Triggering interview prep for {company}...\n<i>This may take 2-3 minutes.</i>")
+                    send_telegram_message(f"🚀 Triggering interview prep for {company}...\n<i>This may take 2-3 minutes.</i>", chat_id)
                     trigger_workflow_dispatch("briefer.yml", {"mode": "interview", "company": company})
             
             elif text.startswith('/help') or text == '/start':
@@ -100,10 +93,10 @@ Examples:
 • /interview Google
 
 <i>Serverless on Vercel + GitHub Actions!</i>"""
-                send_telegram_message(help_text)
+                send_telegram_message(help_text, chat_id)
             
             else:
-                send_telegram_message("❌ Unknown command. Send /help for available commands.")
+                send_telegram_message("❌ Unknown command. Send /help for available commands.", chat_id)
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
