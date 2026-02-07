@@ -23,6 +23,40 @@ def format_for_telegram(text):
     
     return text
 
+def validate_news_output(output_text):
+    """Validate that the output contains sufficient news stories"""
+    if not output_text or len(output_text.strip()) < 200:
+        return False, "Output too short (less than 200 characters)"
+    
+    # Check if output is just a meta-message about needing to search
+    meta_phrases = [
+        "doesn't meet the requirements",
+        "call another tool",
+        "let's search",
+        "need to find",
+        "i should search",
+        "i need to"
+    ]
+    lower_output = output_text.lower()
+    for phrase in meta_phrases:
+        if phrase in lower_output and len(output_text) < 1000:
+            return False, f"Output appears to be a meta-message, not actual news (contains '{phrase}')"
+    
+    # Count news stories (look for 📰 emoji or numbered items)
+    story_count = output_text.count('📰') + output_text.count('**1.')  + output_text.count('**2.') + output_text.count('**3.')
+    
+    if story_count < 5:
+        return False, f"Only {story_count} stories found, minimum is 5"
+    
+    # Check for Indian tech content
+    india_keywords = ['india', 'indian', 'mumbai', 'bangalore', 'delhi', 'bengaluru', 'hyderabad']
+    has_india = any(keyword in lower_output for keyword in india_keywords)
+    
+    if not has_india:
+        return False, "No Indian tech news found"
+    
+    return True, f"Valid output with {story_count} stories"
+
 def get_current_model_name(llm):
     """Extract model name from LLM object"""
     model_str = llm.model if hasattr(llm, 'model') else str(llm)
@@ -125,6 +159,8 @@ GEOGRAPHIC COVERAGE:
 - At least 2-3 Indian tech stories (startups, funding, tech policy, Indian companies)
 - Search for: "India tech news today", "Indian startup funding", "India technology"
         
+IMPORTANT: You MUST complete this task. Do NOT return meta-messages like 'I need to search more' or 'this doesn't meet requirements'. 
+Perform multiple searches if needed, then compile and return the actual news stories.
 Avoid generic statements. Every story must have verifiable, specific details.
 DO NOT return just 1-2 stories. You MUST find and return 5-10 distinct news items.""",
                 expected_output="""MINIMUM 5-10 news stories with SPECIFIC details. MUST include both global and Indian tech news.
@@ -176,6 +212,11 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             # Validate result before sending
             if not result or not result.raw or len(result.raw.strip()) < 100:
                 raise Exception(f"Incomplete result from {current_model}: only {len(result.raw) if result and result.raw else 0} characters")
+            
+            # Additional validation to ensure quality output
+            is_valid, validation_msg = validate_news_output(result.raw)
+            if not is_valid:
+                raise Exception(f"Output validation failed for {current_model}: {validation_msg}")
             
             # Format and send to Telegram with proper HTML formatting
             from datetime import datetime

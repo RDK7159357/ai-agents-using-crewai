@@ -128,13 +128,14 @@ def create_news_scout_agent(llm):
     """Factory function to create news scout agent with given LLM"""
     return Agent(
         role='Technology Trends Analyst',
-        goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains and geographies, with special focus on both global and Indian tech ecosystems.',
-        backstory='An expert researcher who filters signal from noise in technology news globally. Covers AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech from Silicon Valley to Bangalore. Particularly skilled at finding concrete details and diverse geographic perspectives, ensuring both global innovation and Indian tech ecosystem developments are captured.',
+        goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains and geographies, with special focus on both global and Indian tech ecosystems. MUST deliver minimum 5-10 complete news stories - no excuses, no meta-messages about needing to search.',
+        backstory='An expert researcher who filters signal from noise in technology news globally. Covers AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech from Silicon Valley to Bangalore. Particularly skilled at finding concrete details and diverse geographic perspectives, ensuring both global innovation and Indian tech ecosystem developments are captured. Never gives up until finding all required stories - performs multiple searches systematically until quota is met.',
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=15,  # Increased to allow thorough searching for multiple stories
-        max_execution_time=600  # 10 minute timeout for comprehensive research
+        max_iter=25,  # Increased from 15 to allow more thorough searching
+        max_execution_time=600,  # 10 minute timeout for comprehensive research
+        allow_delegation=False  # Prevent delegation that might cause confusion
     )
 
 def create_company_researcher_agent(llm):
@@ -171,7 +172,7 @@ def speak_text(text):
         audio = client.text_to_speech.convert(
             text=text_to_speak,
             voice_id="nPczCjzI2devNBz1zQrb",  # Brian voice ID
-            model_id="eleven_monolingual_v1"
+            model_id="eleven_turbo_v2_5"  # Updated to newer model (was eleven_monolingual_v1)
         )
         
         # Save audio to file
