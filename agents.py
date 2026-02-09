@@ -183,11 +183,67 @@ from elevenlabs import save
 
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
+def _is_truthy(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+def _safe_int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+def _extract_audio_summary(text, max_items):
+    if not text:
+        return ""
+
+    items = []
+
+    if "📰" in text:
+        parts = text.split("📰")
+        for part in parts[1:]:
+            cleaned = part.strip()
+            if not cleaned:
+                continue
+            first_line = cleaned.splitlines()[0].strip()
+            if first_line:
+                items.append(first_line)
+            if len(items) >= max_items:
+                break
+
+    if not items:
+        for line in (line.strip() for line in text.splitlines() if line.strip()):
+            if line.startswith(("- ", "• ")):
+                items.append(line.lstrip("-• ").strip())
+            else:
+                items.append(line)
+            if len(items) >= max_items:
+                break
+
+    if not items:
+        return text
+
+    summary_lines = ["Audio summary:"] + [f"- {item}" for item in items]
+    return "\n".join(summary_lines)
+
+def _build_audio_text(text):
+    use_summary = _is_truthy(os.getenv("AUDIO_USE_SUMMARY", "true"))
+    max_items = _safe_int(os.getenv("AUDIO_SUMMARY_ITEMS", "4"), 4)
+    max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "800"), 800)
+
+    text_to_speak = _extract_audio_summary(text, max_items) if use_summary else text
+
+    if max_chars > 0 and len(text_to_speak) > max_chars:
+        text_to_speak = text_to_speak[:max_chars].rstrip()
+
+    return text_to_speak
+
 def speak_text(text):
     """Generate audio from text using ElevenLabs and send to Telegram"""
     try:
-        # Truncate text to avoid hitting API limits
-        text_to_speak = text[:500] if len(text) > 500 else text
+        text_to_speak = _build_audio_text(text)
+        if not text_to_speak.strip():
+            print("⚠️ Audio text is empty. Skipping audio generation.")
+            return
         
         print("🎙️ Generating audio...")
         audio = client.text_to_speech.convert(
