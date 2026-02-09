@@ -282,16 +282,21 @@ def interview_prep(company):
     max_retries = 4  # Try all models: gemini, groq, openrouter, mistral
     current_attempt = 0
     
-    # Prefer Gemini for interview prep (higher context limit than Groq)
-    # Override PREFERRED_MODEL temporarily
-    original_preferred = os.getenv("PREFERRED_MODEL")
-    os.environ["PREFERRED_MODEL"] = "gemini"
-    
     while current_attempt < max_retries:
         current_attempt += 1
         
-        # Get next LLM to try
-        current_llm = get_llm(skip_models=tried_models)
+        # Get next LLM to try - Prefer Gemini for interview prep (higher context limit)
+        # Skip Groq initially to avoid TPM limits
+        if current_attempt == 1:
+            # First attempt: Force Gemini (2M context) and skip Groq
+            tried_models.add("groq")  # Skip Groq on first attempt
+            current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+        else:
+            # Subsequent attempts: Try remaining models including Groq
+            if "groq" in tried_models and current_attempt == 2:
+                tried_models.remove("groq")  # Allow Groq on retry
+            current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+        
         current_model = extract_model_provider(current_llm.model)
         
         print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
@@ -341,10 +346,6 @@ Keep concise. Reference actual information.""",
             send_telegram(message)
             print(f"\n✅ Interview prep completed successfully with {current_model}!")
             print(result.raw)
-            
-            # Restore original PREFERRED_MODEL
-            if original_preferred:
-                os.environ["PREFERRED_MODEL"] = original_preferred
             return
             
         except Exception as e:
@@ -371,10 +372,10 @@ Keep concise. Reference actual information.""",
                 
                 # Send error notification only after all attempts fail
                 if is_tpm_error:
-                    send_telegram(f"⚠️ <b>Context Too Large - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>The request exceeded model token limits. Try with Gemini (higher context) by setting PREFERRED_MODEL=gemini in GitHub Secrets.</i>")
+                    send_telegram(f"⚠️ <b>Context Too Large - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All models exceeded token limits. Please try again - the system now uses Gemini (higher context) automatically.</i>")
                     print("\n🔧 TPM limit solutions:")
-                    print("1. Set PREFERRED_MODEL=gemini (higher context limit)")
-                    print("2. Task description has been reduced, try again")
+                    print("1. System already using Gemini (highest context)")
+                    print("2. Try again in a minute (quota resets)")
                 elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str or "rate_limit" in error_str.lower():
                     send_telegram(f"⚠️ <b>Rate Limit Error - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later.</i>")
                     print("\n🔧 Rate limit solutions:")
@@ -382,10 +383,6 @@ Keep concise. Reference actual information.""",
                     print("2. Upgrade to paid API tiers")
                 else:
                     send_telegram(f"❌ <b>Critical Error in Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All fallback models failed. Please check API keys.</i>")
-                
-                # Restore original PREFERRED_MODEL
-                if original_preferred:
-                    os.environ["PREFERRED_MODEL"] = original_preferred
                 return
 
 if __name__ == "__main__":

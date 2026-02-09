@@ -14,7 +14,7 @@ def reset_tried_models():
     global _models_tried
     _models_tried = set()
 
-def get_llm(skip_models=None):
+def get_llm(skip_models=None, prefer_model=None):
     """
     Get LLM with fallback support.
     Tries models in order based on PREFERRED_MODEL setting.
@@ -22,11 +22,13 @@ def get_llm(skip_models=None):
     
     Args:
         skip_models: Set of model names to skip (used for fallback retries)
+        prefer_model: Override PREFERRED_MODEL for this call (e.g., "gemini" for high-context tasks)
     """
     if skip_models is None:
         skip_models = set()
     
-    preferred_model = os.getenv("PREFERRED_MODEL", "gemini").lower()
+    # Use override if provided, otherwise use env variable
+    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "groq")).lower()
     
     models_config = {
         "groq": {
@@ -67,12 +69,13 @@ def get_llm(skip_models=None):
         }
     }
     
-    # Fallback order: Groq first (unlimited!), then fallbacks
+    # Default fallback order
     fallback_order = ["groq", "together", "huggingface", "gemini", "openrouter", "mistral"]
     
     # Move preferred model to front if specified
-    if preferred_model in models_config and preferred_model != "gemini":
-        fallback_order.remove(preferred_model)
+    if preferred_model in models_config:
+        if preferred_model in fallback_order:
+            fallback_order.remove(preferred_model)
         fallback_order.insert(0, preferred_model)
     
     # Try each model in order (skip already-tried ones)
