@@ -282,6 +282,11 @@ def interview_prep(company):
     max_retries = 4  # Try all models: gemini, groq, openrouter, mistral
     current_attempt = 0
     
+    # Prefer Gemini for interview prep (higher context limit than Groq)
+    # Override PREFERRED_MODEL temporarily
+    original_preferred = os.getenv("PREFERRED_MODEL")
+    os.environ["PREFERRED_MODEL"] = "gemini"
+    
     while current_attempt < max_retries:
         current_attempt += 1
         
@@ -296,25 +301,18 @@ def interview_prep(company):
         
         try:
             task = Task(
-                description=f"""Research {company} and find SPECIFIC, CONCRETE information for interview preparation.
-                
-REQUIREMENTS:
-- Identify SPECIFIC technologies in their stack (exact versions, frameworks, tools)
-- Find RECENT developments: latest product launches, features, acquisitions (with dates)
-- Discover CONCRETE metrics: revenue, user numbers, growth rates, market position
-- Reference ACTUAL blog posts, GitHub repos, tech talks (with titles and dates)
-- Identify SPECIFIC challenges or problems they're solving
-- Find REAL examples of their engineering culture, practices, or values
-                
-Avoid generic advice. Every talking point must be verifiable and specific to {company}.""",
-                expected_output=f"""5 specific, well-researched talking points with CONCRETE details:
-                
-💡 **[Specific Topic/Technology]**
-• Specific fact 1 (with numbers, dates, or exact technologies)
-• Specific fact 2 (actual product feature, blog post title, or initiative)
-• How to use this in interview (concrete question to ask or value to demonstrate)
+                description=f"""Research {company} for interview prep. Find:
+- Tech stack (specific frameworks, versions, tools)
+- Recent news (product launches, acquisitions, metrics)
+- Engineering culture and challenges
+- Concrete, verifiable facts only.""",
+                expected_output=f"""5 specific talking points about {company}:
 
-Every point should reference actual, verifiable information about {company}.""",
+**[Topic]**
+• Key fact with details (dates, numbers, technologies)
+• How to use in interview
+
+Keep concise. Reference actual information.""",
                 agent=company_researcher
             )
             
@@ -343,6 +341,10 @@ Every point should reference actual, verifiable information about {company}.""",
             send_telegram(message)
             print(f"\n✅ Interview prep completed successfully with {current_model}!")
             print(result.raw)
+            
+            # Restore original PREFERRED_MODEL
+            if original_preferred:
+                os.environ["PREFERRED_MODEL"] = original_preferred
             return
             
         except Exception as e:
@@ -352,9 +354,15 @@ Every point should reference actual, verifiable information about {company}.""",
             # Track this model as tried
             tried_models.add(current_model)
             
+            # Check for TPM (tokens per minute) limit - specific to Groq
+            is_tpm_error = "tokens per minute" in error_str.lower() or "request too large" in error_str.lower()
+            
             # Check if we should retry
             if current_attempt < max_retries:
-                print(f"⚠️ Switching to next model...")
+                if is_tpm_error:
+                    print(f"⚠️ TPM limit exceeded with {current_model}. Trying model with higher context...")
+                else:
+                    print(f"⚠️ Switching to next model...")
                 time.sleep(2)  # Brief delay before retry
                 continue
             else:
@@ -362,13 +370,22 @@ Every point should reference actual, verifiable information about {company}.""",
                 print(f"\n❌ All {max_retries} attempts failed. No more models to try.")
                 
                 # Send error notification only after all attempts fail
-                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str or "rate_limit" in error_str.lower():
+                if is_tpm_error:
+                    send_telegram(f"⚠️ <b>Context Too Large - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>The request exceeded model token limits. Try with Gemini (higher context) by setting PREFERRED_MODEL=gemini in GitHub Secrets.</i>")
+                    print("\n🔧 TPM limit solutions:")
+                    print("1. Set PREFERRED_MODEL=gemini (higher context limit)")
+                    print("2. Task description has been reduced, try again")
+                elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "TooManyRequests" in error_str or "rate_limit" in error_str.lower():
                     send_telegram(f"⚠️ <b>Rate Limit Error - Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All configured LLM models have hit rate limits. Please wait and try again later.</i>")
                     print("\n🔧 Rate limit solutions:")
                     print("1. Wait 24 hours for quota reset")
                     print("2. Upgrade to paid API tiers")
                 else:
                     send_telegram(f"❌ <b>Critical Error in Interview Prep</b>\n\n<code>{error_str[:400]}</code>\n\n<i>All fallback models failed. Please check API keys.</i>")
+                
+                # Restore original PREFERRED_MODEL
+                if original_preferred:
+                    os.environ["PREFERRED_MODEL"] = original_preferred
                 return
 
 if __name__ == "__main__":

@@ -165,7 +165,7 @@ def create_company_researcher_agent(llm):
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=8,  # Limit iterations to reduce API calls
+        max_iter=5,  # Reduced from 8 to lower token usage
         max_execution_time=300  # 5 minute timeout
     )
 
@@ -189,7 +189,7 @@ def speak_text(text):
         print("🎙️ Generating audio...")
         audio = client.text_to_speech.convert(
             text=text_to_speak,
-            voice_id="nPczCjzI2devNBz1zQrb",  # Brian voice ID
+            voice_id="9BWtsMINuXJLrRdOeP0E",  # Rachel - Premium female voice (free tier)
             model_id="eleven_turbo_v2_5"  # Updated to newer model (was eleven_monolingual_v1)
         )
         
