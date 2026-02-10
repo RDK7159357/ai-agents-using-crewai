@@ -183,6 +183,25 @@ from elevenlabs import save
 
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
+def _pick_voice_id(preferred_id, preferred_name):
+    if preferred_id:
+        return preferred_id
+
+    try:
+        voices = client.voices.get_all()
+        if not voices or not getattr(voices, "voices", None):
+            return None
+
+        if preferred_name:
+            for voice in voices.voices:
+                if voice.name and voice.name.lower() == preferred_name.lower():
+                    return voice.voice_id
+
+        return voices.voices[0].voice_id
+    except Exception as e:
+        print(f"⚠️ Failed to fetch voices: {str(e)}")
+        return None
+
 def _is_truthy(value):
     return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
@@ -245,10 +264,18 @@ def speak_text(text):
             print("⚠️ Audio text is empty. Skipping audio generation.")
             return
         
+        preferred_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
+        preferred_voice_name = os.getenv("ELEVENLABS_VOICE_NAME", "Rachel")
+        voice_id = _pick_voice_id(preferred_voice_id, preferred_voice_name)
+
+        if not voice_id:
+            print("⚠️ No ElevenLabs voice available. Skipping audio generation.")
+            return
+
         print("🎙️ Generating audio...")
         audio = client.text_to_speech.convert(
             text=text_to_speak,
-            voice_id="9BWtsMINuXJLrRdOeP0E",  # Rachel - Premium female voice (free tier)
+            voice_id=voice_id,
             model_id="eleven_turbo_v2_5"  # Updated to newer model (was eleven_monolingual_v1)
         )
         

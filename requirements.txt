@@ -7,3 +7,4 @@ flask
 colorama
 litellm
 fastapi
+lite-llm[proxy]
