@@ -5,6 +5,5 @@ python-dotenv
 requests
 flask
 colorama
-litellm
 fastapi
-lite-llm[proxy]
+litellm[proxy]
