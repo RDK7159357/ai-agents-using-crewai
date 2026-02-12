@@ -43,10 +43,16 @@ jobs:
       if: github.event.action == 'run-brief' || github.event.inputs.task == 'brief'
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+        HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: |
         python main.py
     
@@ -54,9 +60,15 @@ jobs:
       if: github.event.action == 'run-interview' || github.event.inputs.task == 'interview'
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+        HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
       run: |
         python main.py interview "${{ github.event.client_payload.company || github.event.inputs.company }}"

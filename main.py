@@ -3,6 +3,10 @@ from agents import news_scout, company_researcher, speak_text, send_telegram, ge
 import time
 import re
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def format_for_telegram(text):
     """Convert markdown formatting to Telegram HTML, safely handling special characters"""
