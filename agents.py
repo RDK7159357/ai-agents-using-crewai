@@ -28,7 +28,7 @@ def get_llm(skip_models=None, prefer_model=None):
         skip_models = set()
     
     # Use override if provided, otherwise use env variable
-    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "groq")).lower()
+    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "gemini")).lower()
     
     models_config = {
         "groq": {
@@ -38,10 +38,10 @@ def get_llm(skip_models=None, prefer_model=None):
             "free_tier": "unlimited ⭐"
         },
         "gemini": {
-            "model": "gemini-2.5-flash",
+            "model": os.getenv("GOOGLE_MODEL", "gemini-2.0-flash"),
             "api_key_env": "GOOGLE_API_KEY",
-            "name": "Gemini 2.5 Flash",
-            "free_tier": "10 req/min"
+            "name": "Gemini 2.0 Flash",
+            "free_tier": "15 req/min"
         },
         "together": {
             "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
@@ -199,7 +199,7 @@ def _pick_voice_id(preferred_id, preferred_name):
 
         return voices.voices[0].voice_id
     except Exception as e:
-        print(f"⚠️ Failed to fetch voices: {str(e)}")
+        print(f"⚠️ ElevenLabs voices unavailable: {str(e)[:80]}")
         return None
 
 def _is_truthy(value):
@@ -257,39 +257,54 @@ def _build_audio_text(text):
     return text_to_speak
 
 def speak_text(text):
-    """Generate audio from text using ElevenLabs and send to Telegram"""
+    """Generate audio from text using ElevenLabs (preferred) or gTTS (fallback), then send to Telegram"""
+    text_to_speak = _build_audio_text(text)
+    if not text_to_speak.strip():
+        print("⚠️ Audio text is empty. Skipping audio generation.")
+        return
+
+    audio_file = "/tmp/daily_brief.mp3"
+
+    # --- Try ElevenLabs first ---
+    elevenlabs_ok = False
     try:
-        text_to_speak = _build_audio_text(text)
-        if not text_to_speak.strip():
-            print("⚠️ Audio text is empty. Skipping audio generation.")
-            return
-        
         preferred_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
         preferred_voice_name = os.getenv("ELEVENLABS_VOICE_NAME", "Rachel")
         voice_id = _pick_voice_id(preferred_voice_id, preferred_voice_name)
 
-        if not voice_id:
-            print("⚠️ No ElevenLabs voice available. Skipping audio generation.")
+        if voice_id:
+            print("🎙️ Generating audio with ElevenLabs...")
+            audio = client.text_to_speech.convert(
+                text=text_to_speak,
+                voice_id=voice_id,
+                model_id="eleven_turbo_v2_5"
+            )
+            save(audio, audio_file)
+            print(f"✅ ElevenLabs audio saved to {audio_file}")
+            elevenlabs_ok = True
+        else:
+            print("⚠️ No ElevenLabs voice available, falling back to gTTS.")
+    except Exception as el_err:
+        print(f"⚠️ ElevenLabs failed: {str(el_err)[:120]}")
+        print("🔄 Falling back to gTTS (Google Text-to-Speech)...")
+
+    # --- Fall back to gTTS ---
+    if not elevenlabs_ok:
+        try:
+            from gtts import gTTS
+            print("🎙️ Generating audio with gTTS (female voice)...")
+            tts = gTTS(text=text_to_speak, lang="en", tld="co.uk", slow=False)  # co.uk = British female voice
+            tts.save(audio_file)
+            print(f"✅ gTTS audio saved to {audio_file}")
+        except Exception as gtts_err:
+            print(f"⚠️ gTTS also failed: {gtts_err}")
+            print("Continuing without audio...")
             return
 
-        print("🎙️ Generating audio...")
-        audio = client.text_to_speech.convert(
-            text=text_to_speak,
-            voice_id=voice_id,
-            model_id="eleven_turbo_v2_5"  # Updated to newer model (was eleven_monolingual_v1)
-        )
-        
-        # Save audio to file
-        audio_file = "/tmp/daily_brief.mp3"
-        save(audio, audio_file)
-        print(f"✅ Audio saved to {audio_file}")
-        
-        # Send to Telegram
-        send_telegram_audio(audio_file)
-        
-    except Exception as e:
-        print(f"⚠️ Audio generation failed: {str(e)}")
-        print("Continuing without audio...")
+    # --- Send to Telegram ---
+    send_telegram_audio(audio_file)
+
+
 
 def send_telegram_audio(audio_file_path):
     """Send audio file to Telegram"""
@@ -302,12 +317,13 @@ def send_telegram_audio(audio_file_path):
     
     try:
         import requests
+        import certifi
         url = f"https://api.telegram.org/bot{bot_token}/sendAudio"
         
         with open(audio_file_path, 'rb') as audio_file:
             files = {'audio': audio_file}
             data = {'chat_id': chat_id, 'title': 'Daily Tech Brief'}
-            response = requests.post(url, files=files, data=data)
+            response = requests.post(url, files=files, data=data, verify=certifi.where())
             
             if response.status_code == 200:
                 print("✅ Audio sent to Telegram")

@@ -61,6 +61,37 @@ def validate_news_output(output_text):
     
     return True, f"Valid output with {story_count} stories"
 
+def extract_retry_wait_seconds(error_str, default=65):
+    """Parse the retry delay from a 429 error message"""
+    import re
+    # Try to find 'Please retry in Xs' pattern
+    match = re.search(r'retry[^\d]+(\d+(?:\.\d+)?)', error_str, re.IGNORECASE)
+    if match:
+        return max(int(float(match.group(1))) + 5, default)  # Add 5s buffer
+    return default
+
+def is_rate_limit_error(error_str):
+    """Check if the error is a rate limit error"""
+    rate_limit_indicators = ["429", "RESOURCE_EXHAUSTED", "TooManyRequests",
+                              "RateLimitError", "rate_limited", "rate limit"]
+    return any(ind.lower() in error_str.lower() for ind in rate_limit_indicators)
+
+def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=2):
+    """Run a crew kickoff with automatic wait-and-retry on 429 rate limit errors."""
+    for attempt in range(max_rate_retries + 1):
+        try:
+            return crew.kickoff()
+        except Exception as e:
+            error_str = str(e)
+            if is_rate_limit_error(error_str) and attempt < max_rate_retries:
+                wait_secs = extract_retry_wait_seconds(error_str, default=65)
+                print(f"\n⏳ Rate limit hit on {model_name} (attempt {attempt+1}/{max_rate_retries}). "
+                      f"Waiting {wait_secs}s before retry...")
+                time.sleep(wait_secs)
+                print(f"🔄 Retrying {model_name} after rate limit cooldown...")
+                continue
+            raise  # Re-raise if not rate limit or out of retries
+
 def get_current_model_name(llm):
     """Extract model name from LLM object"""
     model_str = llm.model if hasattr(llm, 'model') else str(llm)
@@ -206,12 +237,12 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             crew = Crew(
                 agents=[fresh_news_scout], 
                 tasks=[task],
-                max_rpm=10,  # Max 10 requests per minute
+                max_rpm=4,  # Conservative: ~4 reqs/min leaves buffer below Gemini's 15 req/min limit
                 verbose=True
             )
             
-            # Execute the task
-            result = crew.kickoff()
+            # Execute the task with rate-limit retry
+            result = run_crew_with_rate_limit_retry(crew, current_model)
             
             # Validate result before sending
             if not result or not result.raw or len(result.raw.strip()) < 100:

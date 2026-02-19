@@ -7,3 +7,4 @@ flask
 colorama
 fastapi
 litellm[proxy]
+gTTS
