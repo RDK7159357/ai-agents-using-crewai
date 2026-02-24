@@ -84,6 +84,25 @@ If you want to run locally or test:
    python test_apis.py
    ```
 
+Quick: set keys in zsh (macOS)
+```bash
+# Export for current session
+export GROQ_API_KEY="your_groq_api_key"
+export TELEGRAM_BOT_TOKEN="your_telegram_token"
+export TELEGRAM_CHAT_ID="your_chat_id"
+
+# Persist across sessions (add to ~/.zshrc)
+echo 'export GROQ_API_KEY="your_groq_api_key"' >> ~/.zshrc
+echo 'export TELEGRAM_BOT_TOKEN="your_telegram_token"' >> ~/.zshrc
+echo 'export TELEGRAM_CHAT_ID="your_chat_id"' >> ~/.zshrc
+source ~/.zshrc
+
+# Or copy the example .env
+cp .env.example .env
+# then edit .env and run tests
+python test_llm_apis.py
+```
+
 6. Run locally:
    ```bash
    # Daily Brief
