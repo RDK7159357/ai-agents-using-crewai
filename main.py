@@ -4,9 +4,69 @@ import time
 import re
 import os
 from dotenv import load_dotenv
+import requests
+import json
 
 # Load environment variables from .env file
 load_dotenv()
+
+class OllamaLLM:
+    """Custom LLM wrapper for Ollama API"""
+    def __init__(self, api_url, api_key, model):
+        self.api_url = api_url
+        self.api_key = api_key
+        self.model = model
+        self.provider = "ollama"
+    
+    def __call__(self, messages):
+        """Make API call to Ollama"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Convert messages to Ollama format if needed
+        if isinstance(messages, str):
+            formatted_messages = [{"role": "user", "content": messages}]
+        else:
+            formatted_messages = messages
+        
+        data = {
+            "model": self.model,
+            "messages": formatted_messages,
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=data,
+                timeout=120
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                # Ollama format: result["message"]["content"]
+                return result["message"]["content"]
+            else:
+                raise Exception(f"Ollama API error {response.status_code}: {response.text}")
+                
+        except requests.exceptions.Timeout:
+            raise Exception("Ollama API timeout after 120 seconds")
+        except Exception as e:
+            raise Exception(f"Ollama API call failed: {str(e)}")
+
+def get_ollama_llm():
+    """Get Ollama LLM configuration from environment"""
+    api_url = os.getenv("OLLAMA_API_URL", "https://ollama.com/api/chat")
+    api_key = os.getenv("OLLAMA_API_KEY")
+    model = os.getenv("OLLAMA_MODEL", "gpt-oss:120b-cloud")
+    
+    if not api_key:
+        return None
+    
+    return OllamaLLM(api_url, api_key, model)
 
 def format_for_telegram(text):
     """Convert markdown formatting to Telegram HTML, safely handling special characters"""
@@ -94,6 +154,10 @@ def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=2):
 
 def get_current_model_name(llm):
     """Extract model name from LLM object"""
+    # Check if it's Ollama LLM
+    if isinstance(llm, OllamaLLM):
+        return "ollama"
+    
     model_str = llm.model if hasattr(llm, 'model') else str(llm)
     # Extract the model name from formats like "groq/llama-3.1-8b-instant"
     if '/' in model_str:
@@ -104,6 +168,10 @@ def get_current_model_name(llm):
 
 def extract_model_provider(model_string):
     """Extract provider short name from model string"""
+    # Handle Ollama
+    if model_string == "ollama":
+        return "ollama"
+    
     # Handle format: "google/gemini-2.5-flash" -> "gemini"
     if '/' in model_string:
         provider = model_string.split('/')[0]
@@ -129,11 +197,17 @@ def extract_model_provider(model_string):
     return model_string
 
 def daily_brief():
-    """Execute daily brief with runtime fallback mechanism"""
+    """Execute daily brief with runtime fallback mechanism - Ollama first"""
     print("🚀 Starting daily brief...")
+    
+    # Check for Ollama API key first
+    ollama_llm = get_ollama_llm()
     
     # Diagnose available API keys
     available_keys = []
+    if ollama_llm:
+        available_keys.append("ollama")
+    
     for key_name in ["GOOGLE_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "MISTRAL_API_KEY"]:
         if os.getenv(key_name):
             available_keys.append(key_name.replace("_API_KEY", "").lower())
@@ -141,12 +215,15 @@ def daily_brief():
     print(f"🔑 Available API keys: {', '.join(available_keys) if available_keys else 'NONE!'}")
     
     if not available_keys:
-        send_telegram("❌ <b>Configuration Error</b>\n\n<i>No API keys found! Please configure at least one of: GOOGLE_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, MISTRAL_API_KEY</i>")
+        send_telegram("❌ <b>Configuration Error</b>\n\n<i>No API keys found! Please configure at least one of: OLLAMA_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, MISTRAL_API_KEY</i>")
         return
     
     # Show which model is being used
-    preferred = os.getenv("PREFERRED_MODEL", "gemini")
-    print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
+    if ollama_llm:
+        print(f"🤖 Primary Model: Ollama ({ollama_llm.model}) with automatic fallback to Gemini/Groq/OpenRouter/Mistral")
+    else:
+        preferred = os.getenv("PREFERRED_MODEL", "gemini")
+        print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
     
     # Add delay to avoid rate limits
     time.sleep(2)
@@ -154,22 +231,31 @@ def daily_brief():
     # Reset tried models for this execution
     reset_tried_models()
     tried_models = set()
-    max_retries = 4  # Increased to 4 to try all models: gemini, groq, openrouter, mistral
+    max_retries = 5  # Increased to 5: ollama + gemini + groq + openrouter + mistral
     current_attempt = 0
     
     while current_attempt < max_retries:
         current_attempt += 1
         
         try:
-            # Get LLM with fallback to untried models
-            current_llm = get_llm(skip_models=tried_models)
-            current_model = extract_model_provider(current_llm.model)
-            
-            print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+            # Try Ollama first, then fall back to other models
+            if current_attempt == 1 and ollama_llm:
+                current_llm = ollama_llm
+                current_model = "ollama"
+                print(f"\n📡 Attempt {current_attempt}/{max_retries} using Ollama ({ollama_llm.model})...")
+            else:
+                # Fall back to other LLMs
+                if current_attempt == 1:
+                    # If Ollama not available, skip to attempt 2
+                    current_attempt += 1
+                
+                current_llm = get_llm(skip_models=tried_models)
+                current_model = extract_model_provider(current_llm.model)
+                print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
             
             # Add progressive backoff delay for retries
             if current_attempt > 1:
-                delay = (current_attempt - 1) * 5  # 5s, 10s, 15s
+                delay = (current_attempt - 1) * 5  # 5s, 10s, 15s, 20s
                 print(f"⏱️  Waiting {delay}s before retry to avoid rate limits...")
                 time.sleep(delay)
             
@@ -311,30 +397,42 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
 def interview_prep(company):
     print(f"🚀 Starting interview prep for {company}...")
     
+    # Check for Ollama API key first
+    ollama_llm = get_ollama_llm()
+    
     # Reset tried models for this execution
     reset_tried_models()
     tried_models = set()
-    max_retries = 4  # Try all models: gemini, groq, openrouter, mistral
+    max_retries = 5  # Try all models: ollama, gemini, groq, openrouter, mistral
     current_attempt = 0
     
     while current_attempt < max_retries:
         current_attempt += 1
         
-        # Get next LLM to try - Prefer Gemini for interview prep (higher context limit)
-        # Skip Groq initially to avoid TPM limits
-        if current_attempt == 1:
-            # First attempt: Force Gemini (2M context) and skip Groq
-            tried_models.add("groq")  # Skip Groq on first attempt
-            current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+        # Try Ollama first, then fall back to other models
+        if current_attempt == 1 and ollama_llm:
+            current_llm = ollama_llm
+            current_model = "ollama"
+            print(f"\n📡 Attempt {current_attempt}/{max_retries} using Ollama ({ollama_llm.model})...")
         else:
-            # Subsequent attempts: Try remaining models including Groq
-            if "groq" in tried_models and current_attempt == 2:
-                tried_models.remove("groq")  # Allow Groq on retry
-            current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
-        
-        current_model = extract_model_provider(current_llm.model)
-        
-        print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+            # Get next LLM to try - Prefer Gemini for interview prep (higher context limit)
+            # Skip Groq initially to avoid TPM limits
+            if current_attempt == 1 and not ollama_llm:
+                # First attempt without Ollama: Force Gemini (2M context) and skip Groq
+                tried_models.add("groq")  # Skip Groq on first attempt
+                current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+            elif current_attempt == 2 and ollama_llm:
+                # Second attempt after Ollama: Force Gemini and skip Groq
+                tried_models.add("groq")  # Skip Groq on second attempt
+                current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+            else:
+                # Subsequent attempts: Try remaining models including Groq
+                if "groq" in tried_models and (current_attempt == 3 or (current_attempt == 2 and not ollama_llm)):
+                    tried_models.remove("groq")  # Allow Groq on retry
+                current_llm = get_llm(skip_models=tried_models, prefer_model="gemini")
+            
+            current_model = extract_model_provider(current_llm.model)
+            print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
         
         # Add delay to avoid rate limits
         time.sleep(2)
