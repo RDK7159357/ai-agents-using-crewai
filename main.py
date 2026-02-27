@@ -11,51 +11,25 @@ import json
 load_dotenv()
 
 class OllamaLLM:
-    """Custom LLM wrapper for Ollama API"""
-    def __init__(self, api_url, api_key, model):
-        self.api_url = api_url
-        self.api_key = api_key
-        self.model = model
-        self.provider = "ollama"
+    """Custom LLM wrapper for Ollama API.
     
-    def __call__(self, messages):
-        """Make API call to Ollama"""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        # Convert messages to Ollama format if needed
-        if isinstance(messages, str):
-            formatted_messages = [{"role": "user", "content": messages}]
-        else:
-            formatted_messages = messages
-        
-        data = {
-            "model": self.model,
-            "messages": formatted_messages,
-            "stream": False
-        }
-        
-        try:
-            response = requests.post(
-                self.api_url,
-                headers=headers,
-                json=data,
-                timeout=120
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                # Ollama format: result["message"]["content"]
-                return result["message"]["content"]
-            else:
-                raise Exception(f"Ollama API error {response.status_code}: {response.text}")
-                
-        except requests.exceptions.Timeout:
-            raise Exception("Ollama API timeout after 120 seconds")
-        except Exception as e:
-            raise Exception(f"Ollama API call failed: {str(e)}")
+    IMPORTANT: CrewAI's create_llm() extracts attributes (model, api_key, 
+    base_url, temperature, timeout) from this object to create a LiteLLM-
+    compatible LLM. The model MUST have an 'openai/' prefix and base_url 
+    MUST point to the Ollama cloud's OpenAI-compatible /v1 endpoint.
+    """
+    def __init__(self, api_url, api_key, model):
+        self.api_url = api_url  # kept for reference / direct calls
+        self.api_key = api_key
+        # CrewAI/LiteLLM needs 'openai/' prefix to route to custom base_url
+        self.model = f"openai/{model}" if not model.startswith("openai/") else model
+        self.provider = "ollama"
+        # CrewAI's create_llm() reads 'base_url' to set LiteLLM's api_base.
+        # Ollama cloud exposes an OpenAI-compatible endpoint at /v1
+        self.base_url = api_url.replace("/api/chat", "/v1").rstrip("/")
+        self.temperature = 0.7
+        self.timeout = 120
+        self.max_retries = 2
 
 def get_ollama_llm():
     """Get Ollama LLM configuration from environment"""
