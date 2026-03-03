@@ -41,6 +41,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Verify critical imports
+      run: |
+        python -c "import litellm; print(f'✅ litellm {litellm.__version__} imported successfully')"
+        python -c "from crewai import LLM; print('✅ crewai LLM imported successfully')"
+
     - name: Run Daily Brief
       if: github.event.inputs.mode == 'daily' || github.event_name == 'schedule'
       env:
@@ -55,6 +60,9 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ github.event.inputs.chat_id || secrets.TELEGRAM_CHAT_ID }}
         PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
+        OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        OLLAMA_API_URL: ${{ secrets.OLLAMA_API_URL }}
+        OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
       run: python main.py
 
     - name: Run Interview Prep
@@ -71,4 +79,7 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ github.event.inputs.chat_id || secrets.TELEGRAM_CHAT_ID }}
         PREFERRED_MODEL: ${{ secrets.PREFERRED_MODEL }}
+        OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        OLLAMA_API_URL: ${{ secrets.OLLAMA_API_URL }}
+        OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
       run: python main.py interview "${{ github.event.inputs.company }}"

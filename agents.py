@@ -118,6 +118,10 @@ def get_llm(skip_models=None, prefer_model=None):
                     timeout=120,  # Reduced timeout
                     temperature=0.7
                 )
+            except ImportError as e:
+                print(f"⚠️ {config['name']} initialization failed: {str(e)}")
+                print(f"   ℹ️  This provider requires 'litellm'. Run: pip install litellm")
+                continue
             except Exception as e:
                 print(f"⚠️ {config['name']} initialization failed: {str(e)}")
                 continue

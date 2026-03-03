@@ -6,5 +6,6 @@ requests
 flask
 colorama
 fastapi
-litellm[proxy]
+litellm
+certifi
 gTTS
