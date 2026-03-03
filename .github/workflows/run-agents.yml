@@ -41,7 +41,7 @@ jobs:
 
     - name: Verify critical imports
       run: |
-        python -c "import litellm; print(f'✅ litellm {litellm.__version__} imported successfully')"
+        python -c "import litellm; print('✅ litellm imported successfully')"
         python -c "from crewai import LLM; print('✅ crewai LLM imported successfully')"
     
     - name: Run Daily Brief
