@@ -7,5 +7,6 @@ flask
 colorama
 fastapi
 litellm
+apscheduler
 certifi
 gTTS

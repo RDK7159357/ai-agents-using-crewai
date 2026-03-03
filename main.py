@@ -1,4 +1,4 @@
-from crewai import Task, Crew
+from crewai import Task, Crew, LLM
 from agents import news_scout, company_researcher, speak_text, send_telegram, get_llm, reset_tried_models, create_news_scout_agent
 import time
 import re
@@ -10,29 +10,13 @@ import json
 # Load environment variables from .env file
 load_dotenv()
 
-class OllamaLLM:
-    """Custom LLM wrapper for Ollama API.
-    
-    IMPORTANT: CrewAI's create_llm() extracts attributes (model, api_key, 
-    base_url, temperature, timeout) from this object to create a LiteLLM-
-    compatible LLM. The model MUST have an 'openai/' prefix and base_url 
-    MUST point to the Ollama cloud's OpenAI-compatible /v1 endpoint.
-    """
-    def __init__(self, api_url, api_key, model):
-        self.api_url = api_url  # kept for reference / direct calls
-        self.api_key = api_key
-        # CrewAI/LiteLLM needs 'openai/' prefix to route to custom base_url
-        self.model = f"openai/{model}" if not model.startswith("openai/") else model
-        self.provider = "ollama"
-        # CrewAI's create_llm() reads 'base_url' to set LiteLLM's api_base.
-        # Ollama cloud exposes an OpenAI-compatible endpoint at /v1
-        self.base_url = api_url.replace("/api/chat", "/v1").rstrip("/")
-        self.temperature = 0.7
-        self.timeout = 120
-        self.max_retries = 2
-
 def get_ollama_llm():
-    """Get Ollama LLM configuration from environment"""
+    """Get Ollama LLM using CrewAI's native LLM class.
+    
+    Uses the openai/ prefix with a custom base_url pointing to Ollama's
+    OpenAI-compatible /v1 endpoint. This ensures base_url is correctly
+    passed through to LiteLLM instead of defaulting to platform.openai.com.
+    """
     api_url = os.getenv("OLLAMA_API_URL", "https://ollama.com/api/chat")
     api_key = os.getenv("OLLAMA_API_KEY")
     model = os.getenv("OLLAMA_MODEL", "gpt-oss:120b-cloud")
@@ -40,7 +24,23 @@ def get_ollama_llm():
     if not api_key:
         return None
     
-    return OllamaLLM(api_url, api_key, model)
+    # Derive the OpenAI-compatible base URL from the Ollama API URL
+    base_url = api_url.replace("/api/chat", "/v1").rstrip("/")
+    
+    # Prefix with openai/ so LiteLLM routes to the custom base_url
+    full_model = f"openai/{model}" if not model.startswith("openai/") else model
+    
+    try:
+        return LLM(
+            model=full_model,
+            api_key=api_key,
+            base_url=base_url,
+            temperature=0.7,
+            timeout=120,
+        )
+    except Exception as e:
+        print(f"⚠️ Ollama LLM initialization failed: {e}")
+        return None
 
 def format_for_telegram(text):
     """Convert markdown formatting to Telegram HTML, safely handling special characters"""
