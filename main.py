@@ -1,5 +1,5 @@
 from crewai import Task, Crew, LLM
-from agents import news_scout, company_researcher, speak_text, send_telegram, get_llm, reset_tried_models, create_news_scout_agent
+from agents import news_scout, company_researcher, speak_text, send_telegram, get_llm, reset_tried_models, create_news_scout_agent, create_company_researcher_agent
 import time
 import re
 import os
@@ -80,20 +80,62 @@ def validate_news_output(output_text):
         if phrase in lower_output and len(output_text) < 1000:
             return False, f"Output appears to be a meta-message, not actual news (contains '{phrase}')"
     
-    # Count news stories (look for 📰 emoji or numbered items)
-    story_count = output_text.count('📰') + output_text.count('**1.')  + output_text.count('**2.') + output_text.count('**3.')
+    # Count unique news stories by extracting headlines after 📰
+    headlines = re.findall(r'📰\s*\*?\*?([^\n*]+)', output_text)
+    # Normalize and deduplicate headlines
+    seen = set()
+    unique_headlines = []
+    for h in headlines:
+        normalized = h.strip().lower()
+        # Consider headlines with >60% word overlap as duplicates
+        is_dup = False
+        for s in seen:
+            words_h = set(normalized.split())
+            words_s = set(s.split())
+            if words_h and words_s:
+                overlap = len(words_h & words_s) / max(len(words_h), len(words_s))
+                if overlap > 0.6:
+                    is_dup = True
+                    break
+        if not is_dup:
+            seen.add(normalized)
+            unique_headlines.append(h.strip())
+    
+    story_count = len(unique_headlines)
     
     if story_count < 5:
-        return False, f"Only {story_count} stories found, minimum is 5"
+        return False, f"Only {story_count} unique stories found, minimum is 5"
     
     # Check for Indian tech content
-    india_keywords = ['india', 'indian', 'mumbai', 'bangalore', 'delhi', 'bengaluru', 'hyderabad']
+    india_keywords = ['india', 'indian', 'mumbai', 'bangalore', 'delhi', 'bengaluru', 'hyderabad',
+                      'chennai', 'pune', 'startup india', 'upi', 'nasscom', 'infosys', 'tcs', 'wipro',
+                      'reliance', 'jio', 'flipkart', 'zomato', 'phonepe', 'razorpay', 'zerodha']
     has_india = any(keyword in lower_output for keyword in india_keywords)
     
     if not has_india:
         return False, "No Indian tech news found"
     
-    return True, f"Valid output with {story_count} stories"
+    # Check for global tech content
+    global_keywords = ['google', 'apple', 'microsoft', 'meta', 'amazon', 'nvidia', 'openai',
+                       'tesla', 'samsung', 'us ', 'china', 'europe', 'eu ', 'silicon valley',
+                       'deepmind', 'anthropic', 'global', 'worldwide']
+    has_global = any(keyword in lower_output for keyword in global_keywords)
+    
+    if not has_global:
+        return False, "No global tech news found"
+    
+    # Check topic diversity — flag if ALL stories are product launches / shopping deals
+    consumer_keywords = ['launch', 'launched', 'specifications', 'specs', 'smartwatch', 'smartphone',
+                         'sale', 'discount', 'offers', 'price', 'flipkart', 'amazon sale']
+    diverse_keywords = ['ai ', 'artificial intelligence', 'machine learning', 'cybersecurity', 'security',
+                        'vulnerability', 'breach', 'funding', 'raised', 'valuation', 'acquisition',
+                        'open source', 'cloud', 'layoff', 'regulation', 'policy', 'software']
+    
+    has_diverse = any(kw in lower_output for kw in diverse_keywords)
+    if not has_diverse:
+        return False, "No topic diversity — all stories appear to be product launches or shopping deals"
+    
+    return True, f"Valid output with {story_count} unique stories"
 
 def extract_retry_wait_seconds(error_str, default=65):
     """Parse the retry delay from a 429 error message"""
@@ -237,28 +279,40 @@ def daily_brief():
             fresh_news_scout = create_news_scout_agent(current_llm)
             
             task = Task(
-                description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours. 
-        
-CRITICAL REQUIREMENTS:
-- MUST return MINIMUM 5-10 news stories (this is mandatory, not optional)
-- MUST include BOTH global tech news AND Indian tech news
-- Cover diverse topics: AI/ML, software engineering, startups, cybersecurity, hardware, emerging tech
-- Include SPECIFIC company names, product names, and version numbers
-- Cite CONCRETE numbers: funding amounts, user counts, performance metrics, percentages
-- Mention ACTUAL features, capabilities, or technical specifications
-- Reference REAL announcements, launches, or releases with specific dates
-- Include WHO (company/person), WHAT (specific product/feature), WHY it matters (with concrete impact)
+                description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours.
 
-GEOGRAPHIC COVERAGE:
-- At least 3-5 global stories (US, Europe, China, etc.)
-- At least 2-3 Indian tech stories (startups, funding, tech policy, Indian companies)
-- Search for: "India tech news today", "Indian startup funding", "India technology"
-        
-IMPORTANT: You MUST complete this task. Do NOT return meta-messages like 'I need to search more' or 'this doesn't meet requirements'. 
-Perform multiple searches if needed, then compile and return the actual news stories.
-Avoid generic statements. Every story must have verifiable, specific details.
-DO NOT return just 1-2 stories. You MUST find and return 5-10 distinct news items.""",
-                expected_output="""MINIMUM 5-10 news stories with SPECIFIC details. MUST include both global and Indian tech news.
+CRITICAL: TOPIC DIVERSITY IS MANDATORY.
+You MUST cover a MIX of these categories. Do NOT focus only on product launches or shopping deals.
+
+REQUIRED TOPIC MIX (at least one story from EACH category):
+1. AI / Machine Learning — new models, research breakthroughs, industry adoption (search: "AI news today", "machine learning breakthrough", "LLM release")
+2. Software Engineering / Cloud — developer tools, open source, cloud platforms, programming languages (search: "software engineering news", "open source release", "cloud computing news")  
+3. Cybersecurity — breaches, vulnerabilities, security tools, regulations (search: "cybersecurity news today", "data breach", "security vulnerability")
+4. Startups & Funding — funding rounds, acquisitions, IPOs (search: "startup funding today", "tech acquisition", "Indian startup funding")
+5. Industry / Business — Big Tech earnings, layoffs, policy, regulation (search: "tech industry news", "Big Tech news today")
+
+BANNED: Do NOT fill the brief with only smartphone launches, e-commerce sales, or gadget reviews.
+At most 1-2 stories can be about consumer device launches. The rest MUST be from the categories above.
+
+GEOGRAPHIC COVERAGE (MANDATORY — search for EACH separately):
+- At least 3-4 global stories (search: "global tech news today", "Silicon Valley news", "Europe tech news", "China tech news", "US technology news today")
+- At least 3-4 Indian tech stories (search: "India tech news today", "Indian startup funding", "India technology policy", "Bangalore tech news", "Indian IT industry news", "India AI news")
+- Indian stories should cover: Indian startups, funding rounds, NASSCOM/IT industry, government tech policy (Digital India, UPI, ONDC), Indian tech companies (Infosys, TCS, Wipro, Reliance Jio, Flipkart, Zomato, PhonePe, etc.)
+- Global stories should cover: Big Tech (Google, Apple, Microsoft, Meta, Amazon), US/EU/China tech developments, global AI race, international cybersecurity
+
+OTHER REQUIREMENTS:
+- MUST return MINIMUM 7-10 news stories (mandatory)
+- Include SPECIFIC company names, product names, version numbers
+- Cite CONCRETE numbers: funding amounts, user counts, performance metrics
+- Reference REAL announcements with specific dates
+- Every story MUST be UNIQUE — absolutely NO duplicate or repeated stories
+- Perform SEPARATE searches for each topic category above to ensure diversity
+
+Your response must start directly with the first 📰 story. No preamble, no commentary, no instructions — just the stories.""",
+                expected_output="""7-10 UNIQUE news stories covering DIVERSE topics. NO duplicates.
+
+MANDATORY: At least 1 story from EACH of these: AI/ML, Software/Cloud, Cybersecurity, Startups/Funding, Industry/Business.
+At most 1-2 product launch stories. The rest must be from the categories above.
 
 Structure each story as:
         
@@ -267,29 +321,39 @@ Structure each story as:
 • Concrete detail 2 (actual feature, metric, or announcement)
 • Why it matters (specific impact, use case, or implication)
 
-Example Global Story:
+Example AI/ML Story:
 📰 **OpenAI Releases GPT-5 with 10 Trillion Parameters**
 • Launched on February 3, 2026 with 10 trillion parameters (5x larger than GPT-4)
-• New multimodal capabilities process video at 60fps, up from 30fps
 • Benchmarks show 40% improvement in code generation accuracy on HumanEval
-• Priced at $0.03 per 1K tokens, 25% cheaper than GPT-4 Turbo
 • Why it matters: First model to pass the ARC-AGI benchmark, suggesting progress toward general reasoning
 
-Example Indian Story:
+Example Cybersecurity Story:
+📰 **Critical Linux Kernel Vulnerability (CVE-2026-XXXX) Actively Exploited**
+• Remote code execution flaw in kernel 6.x networking stack, CVSS score 9.8
+• CISA adds to Known Exploited Vulnerabilities catalog, patches available
+• Why it matters: Affects all major cloud providers; urgent patching required for production servers
+
+Example Indian Startup Story:
 📰 **Zepto Raises $350M Series F at $5B Valuation**
 • Mumbai-based quick commerce startup closed funding on February 3, 2026
-• Led by Nexus Venture Partners and existing investors Glade Brook Capital
 • Plans to expand dark store network from 350 to 700 stores by June 2026
-• Currently processing 2M orders/day across 10 cities with 12-minute average delivery
 • Why it matters: Largest quick-commerce funding in India, intensifies competition with Blinkit and Instamart
 
-You MUST provide AT LEAST 5 stories total. Include diverse topics covering:
-- Global tech (AI, cloud, cybersecurity, hardware)
-- Indian startups & funding rounds
-- Indian tech policy & regulations
-- Product launches (global and India-specific)
+Example Global Tech Story:
+📰 **Google DeepMind Announces Gemini Ultra 2 with Real-Time Video Understanding**
+• New multimodal model processes live video streams at 60fps with 95% accuracy
+• Available via API at $0.01/1K tokens, undercutting GPT-5 pricing by 30%
+• Why it matters: First production-ready model for real-time video analysis at scale
 
-DO NOT use vague phrases like "continues to be important" or "experts say". Every point needs specifics.""",
+Example Indian Tech Story:
+📰 **PhonePe Crosses 800M Registered Users, Expands into Stock Broking**
+• Walmart-backed fintech now processes 60% of India's UPI transactions
+• Launched Share.Market platform targeting India's growing retail investor base
+• Why it matters: PhonePe's diversification beyond payments signals India's fintech maturation
+
+ABSOLUTE RULE: Each story must appear EXACTLY ONCE. Never repeat a story.
+MUST HAVE: At least 3 global stories AND at least 3 Indian tech stories. This is non-negotiable.""",
+
                 agent=fresh_news_scout
             )
             
@@ -313,11 +377,17 @@ DO NOT use vague phrases like "continues to be important" or "experts say". Ever
             if not is_valid:
                 raise Exception(f"Output validation failed for {current_model}: {validation_msg}")
             
+            # Clean up any preamble the LLM may have added before the first story
+            raw_output = result.raw
+            first_story = raw_output.find('📰')
+            if first_story > 0:
+                raw_output = raw_output[first_story:]
+            
             # Format and send to Telegram with proper HTML formatting
             from datetime import datetime
             today = datetime.now().strftime("%B %d, %Y")
             
-            formatted_content = format_for_telegram(result.raw)
+            formatted_content = format_for_telegram(raw_output)
             message = f"""<b>🤖 Tech Daily Brief</b>
 <i>{today}</i>
 
@@ -412,6 +482,9 @@ def interview_prep(company):
         time.sleep(2)
         
         try:
+            # Create a fresh agent with the current LLM so fallback actually switches models
+            interview_agent = create_company_researcher_agent(current_llm)
+            
             task = Task(
                 description=f"""Research {company} for interview prep. Find:
 - Tech stack (specific frameworks, versions, tools)
@@ -425,13 +498,12 @@ def interview_prep(company):
 • How to use in interview
 
 Keep concise. Reference actual information.""",
-                agent=company_researcher
+                agent=interview_agent
             )
             
             crew = Crew(
-                agents=[company_researcher], 
+                agents=[interview_agent], 
                 tasks=[task],
-                llm=current_llm,
                 max_rpm=10,
                 verbose=True
             )

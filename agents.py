@@ -153,14 +153,14 @@ def create_news_scout_agent(llm):
     """Factory function to create news scout agent with given LLM"""
     return Agent(
         role='Technology Trends Analyst',
-        goal='Identify the most important and interesting technology developments from the last 24 hours across all tech domains and geographies, with special focus on both global and Indian tech ecosystems. MUST deliver minimum 5-10 complete news stories - no excuses, no meta-messages about needing to search.',
-        backstory='An expert researcher who filters signal from noise in technology news globally. Covers AI/ML, software engineering, startups, hardware, cybersecurity, and emerging tech from Silicon Valley to Bangalore. Particularly skilled at finding concrete details and diverse geographic perspectives, ensuring both global innovation and Indian tech ecosystem developments are captured. Never gives up until finding all required stories - performs multiple searches systematically until quota is met.',
+        goal='Find 7-10 DIVERSE tech news stories from the last 24 hours. MUST cover AI/ML, cybersecurity, startups/funding, software/cloud, AND industry news. MUST include both GLOBAL tech news (US, Europe, China) and INDIAN tech news (startups, IT industry, policy, Indian companies). Do NOT focus only on product launches or shopping deals — at most 1-2 can be device launches. Perform SEPARATE searches for each topic AND geography. Every story must be UNIQUE with no duplicates.',
+        backstory='An expert technology journalist who covers ALL domains of technology globally AND in India. Tracks AI/ML breakthroughs, cybersecurity incidents, startup funding rounds, open-source releases, cloud infrastructure, tech policy, and big tech business moves. Has deep expertise in the Indian tech ecosystem — covering Bangalore/Hyderabad startups, NASSCOM industry trends, UPI/fintech developments, Indian government tech policy, and major Indian tech companies. Equally strong on global tech — Silicon Valley, European regulations, Chinese tech developments. Performs multiple targeted searches by BOTH topic and geography to ensure balanced coverage.',
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=25,  # Increased from 15 to allow more thorough searching
-        max_execution_time=600,  # 10 minute timeout for comprehensive research
-        allow_delegation=False  # Prevent delegation that might cause confusion
+        max_iter=25,
+        max_execution_time=600,
+        allow_delegation=False
     )
 
 def create_company_researcher_agent(llm):
