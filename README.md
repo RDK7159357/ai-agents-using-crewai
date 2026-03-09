@@ -1,6 +1,6 @@
 # AI Agent Briefer
 
-An AI-powered daily briefing agent that delivers tech news and interview preparation through Telegram.
+An AI-powered daily briefing and interview intelligence agent that delivers tech news and deep company research through Telegram — with voice output.
 
 ## 🚀 Quick Start - Serverless Deployment
 
@@ -10,11 +10,13 @@ See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + Gi
 
 ## Features
 
-- **Daily Tech Brief**: Get curated technology news with specific details, metrics, and announcements
-- **Interview Prep**: Research companies and generate talking points for interviews
-- **Telegram Bot**: Control everything from your Telegram chat
-- **Voice Output**: Hear your briefings with ElevenLabs text-to-speech
-- **Serverless**: Deploy to Vercel for 100% cloud operation
+- **Daily Tech Brief**: Curated technology news covering AI/ML, cybersecurity, startups, cloud, and Indian tech — with specific details, metrics, and dates
+- **Interview Edge**: Deep company intelligence briefing with tech stack, recent moves, culture insights, killer interviewer questions, and a tactical interview playbook
+- **Voice Output**: Hear your briefings and interview prep via ElevenLabs TTS (with gTTS fallback)
+- **Telegram Bot**: Control everything from Telegram — `/brief` for news, `/interview <company>` for interview prep
+- **Smart Validation**: Output validation catches raw tool calls, template parroting, lazy agents, and malformed responses — auto-retries with the next model
+- **Multi-Model Fallback**: Automatic failover across Ollama, Gemini, Groq, OpenRouter, Mistral, Together AI, and HuggingFace
+- **Serverless**: Deploy to Vercel + GitHub Actions for 100% cloud operation
 
 ## Setup
 
@@ -108,8 +110,11 @@ python test_llm_apis.py
    # Daily Brief
    python main.py
    
-   # Interview Prep
+   # Interview Edge (deep company intel + killer questions)
    python main.py interview "Google"
+   
+   # Telegram Bot Mode
+   python main.py bot
    ```
    
    **This app uses 100% FREE tier models - no paid APIs required!**
@@ -201,9 +206,25 @@ Send these commands to your bot:
 
 ```
 /brief              - Get today's tech news briefing
-/interview Google   - Get interview prep for a company
+/interview Google   - Get deep interview intelligence for a company
 /help              - Show help message
 ```
+
+### Interview Edge — What You Get
+
+The `/interview` command runs 6 targeted searches and produces a complete intelligence briefing:
+
+| Section | What's In It |
+|---------|-------------|
+| **Company Intel** | Founding year, HQ, employee count, CEO/CTO names |
+| **Tech Stack** | Languages, frameworks, databases, cloud, CI/CD, monitoring tools |
+| **Recent Moves** | 3-5 events from the last 12 months with dates and numbers |
+| **Culture & Team** | Team size, remote/hybrid/onsite, Glassdoor rating, review themes |
+| **Challenges** | Business problems, competitors, technical pain points |
+| **Killer Questions** | 5-7 interviewer questions that reference specific company facts |
+| **Interview Playbook** | How to answer "Why this company?", when to drop facts, how to close strong |
+
+Each briefing also generates a **voice summary** sent as a Telegram audio message.
 
 ### Daily Schedule
 
@@ -214,59 +235,77 @@ No action needed - it just works! 🤖
 ## Features
 
 - ✅ **100% FREE** - No paid APIs required, runs entirely on free tiers
+- ✅ **Interview Edge** - Deep company research with killer interviewer questions and tactical playbook
+- ✅ **Voice Output** - ElevenLabs TTS with gTTS fallback for both briefs and interview prep
+- ✅ **Smart Validation** - Catches lazy agents, raw tool calls, template parroting, and empty sections — auto-retries with next model
+- ✅ **Markdown → Telegram** - Converts tables, headers, bold, italic, and code blocks to clean Telegram HTML
 - ✅ Specific details with numbers, dates, and metrics
-- ✅ Proper HTML formatting for Telegram
-- ✅ **Gemini 1.5 Flash**: 1,500 free requests/day (default)
-- ✅ **Gemini 2.5 Flash**: 20 free requests/day (experimental, newest model)
-- ✅ Smart rate limiting and retry logic
-- ✅ Voice output with ElevenLabs (free tier)
+- ✅ **Multi-Model Fallback** - Ollama → Gemini → Groq → OpenRouter → Mistral (auto-switches on failure)
+- ✅ Smart rate limiting and retry logic with exponential backoff
 - ✅ Real-time Telegram bot interface
-- ✅ Multiple agent support (News Scout, Company Researcher)
-- ✅ Automated daily briefings at 8 AM UTC via GitHub Actions (free)
+- ✅ Two specialized agents: News Scout (daily brief) and Interview Edge Strategist (company research)
+- ✅ Automated daily briefings via GitHub Actions (free)
 
 ## Important Notes
 
 ### Model Selection (100% Free)
-This app uses only FREE tier AI models - no costs!
+This app uses only FREE tier AI models with automatic fallback — no costs!
 
-1. **Gemini 1.5 Flash** (Default) ⭐
-   - ✅ **1,500 free requests/day**
-   - ✅ Fast and capable
-   - ✅ Perfect for daily automation
-   - ✅ Default model - no config needed
+**Fallback order:** Ollama (if configured) → Preferred model → remaining models
 
-2. **Gemini 2.5 Flash** (Experimental)
-   - ⚠️ **Only 20 free requests/day**
-   - ✅ Newest model, improved quality
-   - ⚠️ Limited quota - not for automation
-   - Use: Set `PREFERRED_MODEL=gemini-2.5`
+1. **Ollama** (Self-hosted, any model)
+   - ✅ Unlimited, no rate limits
+   - ✅ Tried first if `OLLAMA_API_KEY` is set
+   - Use: Set `OLLAMA_API_URL`, `OLLAMA_API_KEY`, `OLLAMA_MODEL` in `.env`
 
-3. **Groq** (Llama 3.1 8B Instant)
-   - ✅ Free tier available
+2. **Groq** (Llama 3.1 8B Instant) ⭐ RECOMMENDED
+   - ✅ **Unlimited free tier**
    - ✅ Very fast inference
    - Use: Set `PREFERRED_MODEL=groq`
 
-4. **OpenRouter** (Mistral 7B Instruct)
+3. **Gemini 2.0 Flash** (Default for interview prep)
+   - ✅ 15 requests/min free
+   - ✅ High context window, great for interview research
+   - Use: Set `PREFERRED_MODEL=gemini`
+
+4. **OpenRouter** (Llama 3.1 8B Free)
    - ✅ Free tier available
-   - ✅ Access to multiple open models
    - Use: Set `PREFERRED_MODEL=openrouter`
 
-5. **Mistral** (Open Mistral 7B)
+5. **Mistral** (Mistral Small Latest)
    - ✅ Free tier available
-   - ✅ Official Mistral API
    - Use: Set `PREFERRED_MODEL=mistral`
+
+6. **Together AI** (Llama 3.1 8B Turbo)
+   - ✅ $25 free credits
+   - Use: Set `PREFERRED_MODEL=together`
+
+7. **HuggingFace** (Llama 3 8B Instruct)
+   - ✅ 1,000 requests/day free
+   - Use: Set `PREFERRED_MODEL=huggingface`
 
 **All models above are free-tier eligible - no credit card needed!**
 
-### API Quotas (All FREE) (All FREE)
-- **Gemini 1.5 Flash**: 1,500 requests/day ✅ (default)
-- **Gemini 2.5 Flash**: 20 requests/day ⚠️ (experimental)
-- **Groq**: Free tier available ✅
+### Output Validation
+The system validates every output before sending to Telegram:
+- **Raw tool calls** — Detects when the LLM outputs search tool syntax instead of results
+- **Template parroting** — Catches when the LLM copies instructions back verbatim
+- **Lazy agents** — Rejects outputs where 4+ sections say "Not found" (agent didn't run searches)
+- **Unfilled placeholders** — Catches bracket placeholders like `[year]`, `[Name]` left unfilled
+- **Minimum length** — Ensures output has sufficient content
+
+Failed validation triggers automatic retry with the next model in the fallback chain.
+
+### API Quotas (All FREE)
+- **Ollama**: Unlimited (self-hosted) ✅
+- **Groq**: Unlimited free tier ✅
+- **Gemini 2.0 Flash**: 15 requests/min ✅
 - **OpenRouter**: Free tier available ✅
 - **Mistral**: Free tier available ✅
+- **Together AI**: $25 free credits ✅
+- **HuggingFace**: 1,000 requests/day ✅
 - **Serper**: 2,500 searches/month ✅
-- **ElevenLabs**: 10k characters/month ✅ (optional)
-- Each brief uses ~5-15 Gemini requests
+- **ElevenLabs**: 10k characters/month ✅ (optional, falls back to gTTS)
 - **Daily cost: $0** 🎉
 
 ### GitHub Actions Cron

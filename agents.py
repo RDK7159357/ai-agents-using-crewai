@@ -164,14 +164,14 @@ def create_news_scout_agent(llm):
 def create_company_researcher_agent(llm):
     """Factory function to create company researcher agent with given LLM"""
     return Agent(
-        role='Corporate Value Analyst',
-        goal='Research {company_name} to find technical challenges I can help solve.',
-        backstory='A specialist in engineering interviews who finds "value-add" angles.',
+        role='Interview Edge Strategist',
+        goal='Deep-research a company to give the candidate an unfair advantage in their interview. Find intel that most candidates would never know, and turn it into killer questions that impress interviewers.',
+        backstory='You are an elite interview coach who has helped 500+ engineers land offers at top companies. Your secret weapon: you research companies so deeply that your candidates ask questions interviewers have never heard before. You find the company\'s real pain points, recent wins, tech decisions, and leadership moves — then craft strategic questions that make the candidate look like they already work there.',
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=10,  # Enough iterations for search + synthesis
-        max_execution_time=300  # 5 minute timeout
+        max_iter=20,  # 6 searches + synthesis needs room
+        max_execution_time=480  # 8 minute timeout for thorough research
     )
 
 # Agent 1: The News Scout

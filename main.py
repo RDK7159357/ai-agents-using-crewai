@@ -49,17 +49,45 @@ def format_for_telegram(text):
     text = text.replace('<', '&lt;')
     text = text.replace('>', '&gt;')
     
+    # Remove horizontal rules (---, ___, ***)
+    text = re.sub(r'^[\s]*[-_*]{3,}[\s]*$', '', text, flags=re.MULTILINE)
+    
+    # Convert markdown tables to readable text
+    # First, detect and remove table separator rows (|---|---|)
+    text = re.sub(r'^\s*\|[\s\-:|]+\|\s*$', '', text, flags=re.MULTILINE)
+    # Convert table header/data rows: | Col1 | Col2 | -> "Col1: Col2"
+    def format_table_row(match):
+        row = match.group(0)
+        cells = [c.strip() for c in row.strip('| \t').split('|')]
+        cells = [c for c in cells if c]
+        if len(cells) == 2:
+            return f"• <b>{cells[0]}</b>: {cells[1]}"
+        elif len(cells) >= 3:
+            return "• " + " | ".join(cells)
+        elif len(cells) == 1:
+            return f"• {cells[0]}"
+        return row
+    text = re.sub(r'^\s*\|.+\|\s*$', format_table_row, text, flags=re.MULTILINE)
+    
+    # Convert ## headers to bold (must be done before ** conversion)
+    text = re.sub(r'^#{1,6}\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
+    
     # Convert **bold** to <b>bold</b> (must be done before single *)
     text = re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', text)
     
     # Convert *italic* to <i>italic</i> (but not if it's part of **)
-    # Only match single * that aren't already part of HTML tags
     text = re.sub(r'(?<!\*)\*(?!\*)([^*]+?)\*(?!\*)', r'<i>\1</i>', text)
     
-    # Clean up any remaining standalone * or _ that aren't formatting
-    # (This handles bullet points like "• ")
+    # Convert `code` to <code>code</code>
+    text = re.sub(r'`([^`]+?)`', r'<code>\1</code>', text)
     
-    return text
+    # Clean up excessive blank lines (more than 2 in a row)
+    text = re.sub(r'\n{4,}', '\n\n\n', text)
+    
+    # Clean up lines that are just whitespace
+    text = re.sub(r'\n\s+\n', '\n\n', text)
+    
+    return text.strip()
 
 def validate_news_output(output_text):
     """Validate that the output contains sufficient news stories"""
@@ -137,8 +165,31 @@ def validate_news_output(output_text):
     
     return True, f"Valid output with {story_count} unique stories"
 
+def clean_interview_preamble(output_text):
+    """Strip any preamble or meta-instructions before the actual content."""
+    if not output_text:
+        return output_text
+
+    # Find the first section header (e.g. "**COMPANY", "COMPANY INTEL", "**1.")
+    match = re.search(r'(?:^|\n)\s*(?:\*\*)?(?:COMPANY|1[.\)])', output_text)
+    if match and match.start() > 0:
+        preamble = output_text[:match.start()].strip()
+        if len(preamble) > 50:
+            output_text = output_text[match.start():].lstrip()
+
+    # Strip trailing meta-commentary
+    lines = output_text.rstrip().split('\n')
+    meta_tails = [
+        'every bullet', 'the final answer', 'no generic', 'follow the exact',
+        'no extra commentary', 'must contain specific', 'critical:', 'do not use placeholder',
+        'do not copy these instructions',
+    ]
+    while lines and any(p in lines[-1].lower() for p in meta_tails):
+        lines.pop()
+    return '\n'.join(lines).rstrip()
+
 def validate_interview_output(output_text):
-    """Validate that interview prep output contains actual research, not raw tool calls."""
+    """Validate that interview prep output contains actual research, not raw tool calls, unfilled templates, or parroted instructions."""
     if not output_text or len(output_text.strip()) < 200:
         return False, "Output too short (less than 200 characters)"
 
@@ -163,9 +214,43 @@ def validate_interview_output(output_text):
     if tool_call_count >= 2:
         return False, f"Output contains raw tool call syntax ({tool_call_count} patterns detected) instead of actual results"
 
-    # Check that output has substantive content (talking points with details)
-    has_bullets = output_text.count('•') >= 3 or output_text.count('-') >= 3
-    has_structure = '**' in output_text or any(f'{i}.' in output_text for i in range(1, 6))
+    # Detect unfilled template placeholders like [year], [city], [X], [Name]
+    placeholder_pattern = re.findall(r'\[(?:year|city|state|country|X|Name|specific|brief|Language|Framework|Cloud|version|Date|Source)\w*[^\]]*\]', output_text, re.IGNORECASE)
+    if len(placeholder_pattern) >= 3:
+        return False, f"Output contains {len(placeholder_pattern)} unfilled template placeholders: {placeholder_pattern[:5]}"
+
+    # Detect template/instruction text being parroted back verbatim
+    instruction_phrases = [
+        'list every technology, framework',
+        'founding year, hq location, employee count',
+        'for each piece of intel above',
+        'generate at least 5',
+        'craft a sharp question',
+        'how this makes you stand out',
+        'when to drop each fact naturally',
+        'how to close strong by referencing',
+        'what to say if asked',
+        'for each section, give 2-3 sentences',
+        'exact versions if available',
+        'real technical and business challenges they face',
+        'team size, work style (remote/hybrid/onsite)',
+        'examples of great questions',
+        'adapt to',
+        'do not copy these instructions',
+        'every fact must come from your search',
+    ]
+    parrot_count = sum(1 for p in instruction_phrases if p in lower_output)
+    if parrot_count >= 4:
+        return False, f"Output is parroting {parrot_count} instruction phrases back instead of providing researched data"
+
+    # Reject outputs where most sections are "Not found" — means agent skipped searches
+    not_found_count = lower_output.count('not found in public sources')
+    if not_found_count >= 4:
+        return False, f"Agent was lazy: {not_found_count} out of 7 sections say 'Not found'. Agent must run all searches."
+
+    # Check that output has substantive content
+    has_bullets = output_text.count('•') >= 3 or output_text.count('-') >= 5
+    has_structure = '**' in output_text or any(f'{i}.' in output_text for i in range(1, 8))
     if not has_bullets and not has_structure:
         return False, "Output lacks structured talking points"
 
@@ -521,18 +606,37 @@ def interview_prep(company):
             interview_agent = create_company_researcher_agent(current_llm)
             
             task = Task(
-                description=f"""Research {company} for interview prep. Find:
-- Tech stack (specific frameworks, versions, tools)
-- Recent news (product launches, acquisitions, metrics)
-- Engineering culture and challenges
-- Concrete, verifiable facts only.""",
-                expected_output=f"""5 specific talking points about {company}:
+                description=f"""You are preparing a candidate for a job interview at {company}.
 
-**[Topic]**
-• Key fact with details (dates, numbers, technologies)
-• How to use in interview
+You MUST perform EXACTLY 6 searches before writing your answer. Do NOT skip any search. Do NOT write your final answer until all 6 searches are complete.
 
-Keep concise. Reference actual information.""",
+SEARCH 1: Search for "{company} company overview founded headquarters CEO employees"
+SEARCH 2: Search for "{company} technology stack software engineering tools"
+SEARCH 3: Search for "{company} latest news 2025 2026 announcements"
+SEARCH 4: Search for "{company} glassdoor reviews engineering culture work environment"
+SEARCH 5: Search for "{company} competitors challenges industry problems"
+SEARCH 6: Search for "{company} careers jobs hiring engineering positions"
+
+After completing ALL 6 searches, compile your findings into this briefing:
+
+COMPANY INTEL: founding year, HQ city, employee count, what {company} does, CEO and CTO names.
+
+TECH STACK: every technology, language, framework, database, cloud service you found in job postings or articles.
+
+RECENT MOVES: 3-5 events from the last 12 months with dates and numbers.
+
+CULTURE & TEAM: team size, remote/hybrid/onsite, Glassdoor rating, employee review themes.
+
+CHALLENGES: business problems, competitors, technical difficulties.
+
+KILLER QUESTIONS TO ASK INTERVIEWER: 5-7 smart questions. Each must reference a specific {company} fact you found. After each question explain why it impresses the interviewer.
+
+INTERVIEW PLAYBOOK: How to answer "Why {company}?" using your findings. When to mention specific facts. How to close strong.
+
+IMPORTANT: You have the search tool. USE IT for all 6 searches. The more you search, the better the briefing. Do not say "Not found" without actually searching first.
+
+FORMAT: Use plain text with bullet points (•) and bold (**text**) for headers. Do NOT use markdown tables (| col | col |) or ## headers. Keep it clean and readable.""",
+                expected_output=f"""A detailed {company} intelligence briefing with all sections populated from search results, at least 5 killer interviewer questions, and interview tactics.""",
                 agent=interview_agent
             )
             
@@ -554,21 +658,32 @@ Keep concise. Reference actual information.""",
                 print(f"⚠️ Output validation failed: {validation_msg}")
                 raise Exception(f"Output validation failed for {current_model}: {validation_msg}")
             
+            # Clean up preamble/meta-instructions before sending
+            cleaned_output = clean_interview_preamble(result.raw)
+            
             # Success! Format and send to Telegram
             from datetime import datetime
             today = datetime.now().strftime("%B %d, %Y")
             
-            formatted_content = format_for_telegram(result.raw)
-            message = f"""<b>💼 Interview Prep: {company}</b>
-<i>Prepared on {today}</i>
+            formatted_content = format_for_telegram(cleaned_output)
+            message = f"""<b>🎯 Interview Edge: {company}</b>
+<i>Prepared on {today} | Your unfair advantage</i>
 
 {formatted_content}
 
 <i>━━━━━━━━━━━━━━━━</i>
-<i>Good luck! 🍀</i>"""
+<i>Go crush it! 🔥</i>"""
             send_telegram(message)
+            
+            # Try audio generation but don't fail if it doesn't work
+            try:
+                speak_text(cleaned_output)
+            except Exception as audio_error:
+                print(f"⚠️ Audio generation failed: {audio_error}")
+                print("But interview prep was sent successfully!")
+            
             print(f"\n✅ Interview prep completed successfully with {current_model}!")
-            print(result.raw)
+            print(cleaned_output)
             return
             
         except Exception as e:
