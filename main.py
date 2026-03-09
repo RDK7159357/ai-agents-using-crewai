@@ -36,7 +36,7 @@ def get_ollama_llm():
             api_key=api_key,
             base_url=base_url,
             temperature=0.7,
-            timeout=120,
+            timeout=180,
         )
     except Exception as e:
         print(f"⚠️ Ollama LLM initialization failed: {e}")
@@ -137,6 +137,40 @@ def validate_news_output(output_text):
     
     return True, f"Valid output with {story_count} unique stories"
 
+def validate_interview_output(output_text):
+    """Validate that interview prep output contains actual research, not raw tool calls."""
+    if not output_text or len(output_text.strip()) < 200:
+        return False, "Output too short (less than 200 characters)"
+
+    lower_output = output_text.lower()
+
+    # Detect raw tool call syntax leaked into the output
+    tool_call_patterns = [
+        'search_the_internet_with_serper',
+        '<search_',
+        'search_query',
+        'search_type',
+        '</function>',
+        'action_input',
+        'action: search',
+        'please wait for the results',
+        'i need to search',
+        'let me search',
+        'i will now search',
+        'i\'ll search for',
+    ]
+    tool_call_count = sum(1 for p in tool_call_patterns if p in lower_output)
+    if tool_call_count >= 2:
+        return False, f"Output contains raw tool call syntax ({tool_call_count} patterns detected) instead of actual results"
+
+    # Check that output has substantive content (talking points with details)
+    has_bullets = output_text.count('•') >= 3 or output_text.count('-') >= 3
+    has_structure = '**' in output_text or any(f'{i}.' in output_text for i in range(1, 6))
+    if not has_bullets and not has_structure:
+        return False, "Output lacks structured talking points"
+
+    return True, "Valid interview prep output"
+
 def extract_retry_wait_seconds(error_str, default=65):
     """Parse the retry delay from a 429 error message"""
     import re
@@ -152,7 +186,7 @@ def is_rate_limit_error(error_str):
                               "RateLimitError", "rate_limited", "rate limit"]
     return any(ind.lower() in error_str.lower() for ind in rate_limit_indicators)
 
-def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=2):
+def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=3):
     """Run a crew kickoff with automatic wait-and-retry on 429 rate limit errors."""
     for attempt in range(max_rate_retries + 1):
         try:
@@ -160,7 +194,8 @@ def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=2):
         except Exception as e:
             error_str = str(e)
             if is_rate_limit_error(error_str) and attempt < max_rate_retries:
-                wait_secs = extract_retry_wait_seconds(error_str, default=65)
+                base_wait = extract_retry_wait_seconds(error_str, default=65)
+                wait_secs = base_wait + (attempt * 30)  # Exponential backoff: +0s, +30s, +60s
                 print(f"\n⏳ Rate limit hit on {model_name} (attempt {attempt+1}/{max_rate_retries}). "
                       f"Waiting {wait_secs}s before retry...")
                 time.sleep(wait_secs)
@@ -361,7 +396,7 @@ MUST HAVE: At least 3 global stories AND at least 3 Indian tech stories. This is
             crew = Crew(
                 agents=[fresh_news_scout], 
                 tasks=[task],
-                max_rpm=4,  # Conservative: ~4 reqs/min leaves buffer below Gemini's 15 req/min limit
+                max_rpm=3,  # Conservative: ~3 reqs/min to stay well within free-tier rate limits
                 verbose=True
             )
             
@@ -509,6 +544,15 @@ Keep concise. Reference actual information.""",
             )
             
             result = crew.kickoff()
+            
+            # Validate result before sending
+            if not result or not result.raw or len(result.raw.strip()) < 100:
+                raise Exception(f"Incomplete result from {current_model}: only {len(result.raw) if result and result.raw else 0} characters")
+            
+            is_valid, validation_msg = validate_interview_output(result.raw)
+            if not is_valid:
+                print(f"⚠️ Output validation failed: {validation_msg}")
+                raise Exception(f"Output validation failed for {current_model}: {validation_msg}")
             
             # Success! Format and send to Telegram
             from datetime import datetime

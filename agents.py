@@ -93,8 +93,6 @@ def get_llm(skip_models=None, prefer_model=None):
         
         if api_key:
             try:
-                print(f"🤖 Using {config['name']} ({config['free_tier']})")
-                
                 # Create model string with provider prefix
                 if model_name == "gemini":
                     full_model = f"google/{config['model']}"
@@ -159,7 +157,7 @@ def create_news_scout_agent(llm):
         verbose=True,
         llm=llm,
         max_iter=25,
-        max_execution_time=600,
+        max_execution_time=900,
         allow_delegation=False
     )
 
@@ -172,7 +170,7 @@ def create_company_researcher_agent(llm):
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=5,  # Reduced from 8 to lower token usage
+        max_iter=10,  # Enough iterations for search + synthesis
         max_execution_time=300  # 5 minute timeout
     )
 
