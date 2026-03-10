@@ -279,8 +279,8 @@ def run_crew_with_rate_limit_retry(crew, model_name, max_rate_retries=3):
         except Exception as e:
             error_str = str(e)
             if is_rate_limit_error(error_str) and attempt < max_rate_retries:
-                base_wait = extract_retry_wait_seconds(error_str, default=65)
-                wait_secs = base_wait + (attempt * 30)  # Exponential backoff: +0s, +30s, +60s
+                base_wait = extract_retry_wait_seconds(error_str, default=90)
+                wait_secs = base_wait + (attempt * 45)  # Exponential backoff: +0s, +45s, +90s
                 print(f"\n⏳ Rate limit hit on {model_name} (attempt {attempt+1}/{max_rate_retries}). "
                       f"Waiting {wait_secs}s before retry...")
                 time.sleep(wait_secs)
@@ -391,7 +391,7 @@ def daily_brief():
             
             # Add progressive backoff delay for retries
             if current_attempt > 1:
-                delay = (current_attempt - 1) * 5  # 5s, 10s, 15s, 20s
+                delay = (current_attempt - 1) * 30  # 30s, 60s, 90s, 120s
                 print(f"⏱️  Waiting {delay}s before retry to avoid rate limits...")
                 time.sleep(delay)
             
@@ -481,7 +481,7 @@ MUST HAVE: At least 3 global stories AND at least 3 Indian tech stories. This is
             crew = Crew(
                 agents=[fresh_news_scout], 
                 tasks=[task],
-                max_rpm=3,  # Conservative: ~3 reqs/min to stay well within free-tier rate limits
+                max_rpm=2,  # Very conservative: ~2 reqs/min to stay within free-tier rate limits
                 verbose=True
             )
             

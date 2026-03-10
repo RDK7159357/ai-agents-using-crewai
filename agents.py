@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import re
 import time
 from crewai import Agent, LLM
 from crewai_tools import SerperDevTool
@@ -28,7 +29,7 @@ def get_llm(skip_models=None, prefer_model=None):
         skip_models = set()
     
     # Use override if provided, otherwise use env variable
-    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "gemini")).lower()
+    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "groq")).lower()
     
     models_config = {
         "groq": {
@@ -156,7 +157,7 @@ def create_news_scout_agent(llm):
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=25,
+        max_iter=15,
         max_execution_time=900,
         allow_delegation=False
     )
@@ -246,12 +247,36 @@ def _extract_audio_summary(text, max_items):
     summary_lines = ["Audio summary:"] + [f"- {item}" for item in items]
     return "\n".join(summary_lines)
 
+def _strip_markdown_for_speech(text):
+    """Remove markdown/HTML formatting so TTS reads clean prose."""
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Remove markdown headers (## Header → Header)
+    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+    # Remove bold/italic markers (**, __, *, _)
+    text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
+    text = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', text)
+    # Remove inline code backticks
+    text = re.sub(r'`([^`]*)`', r'\1', text)
+    # Remove markdown links [text](url) → text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Remove horizontal rules
+    text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+    # Remove bullet markers (-, •, *) at line start → keep the text
+    text = re.sub(r'^[\s]*[-•*]\s+', '', text, flags=re.MULTILINE)
+    # Remove numbered list markers (1. 2. etc) → keep the text
+    text = re.sub(r'^[\s]*\d+\.\s+', '', text, flags=re.MULTILINE)
+    # Collapse multiple blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
 def _build_audio_text(text):
     use_summary = _is_truthy(os.getenv("AUDIO_USE_SUMMARY", "true"))
     max_items = _safe_int(os.getenv("AUDIO_SUMMARY_ITEMS", "4"), 4)
     max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "800"), 800)
 
     text_to_speak = _extract_audio_summary(text, max_items) if use_summary else text
+    text_to_speak = _strip_markdown_for_speech(text_to_speak)
 
     if max_chars > 0 and len(text_to_speak) > max_chars:
         text_to_speak = text_to_speak[:max_chars].rstrip()
