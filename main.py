@@ -469,7 +469,7 @@ Must include global and Indian tech stories across diverse topics.""",
             
             # Try audio generation but don't fail if it doesn't work
             try:
-                speak_text(result.raw)
+                speak_text(message)
             except Exception as audio_error:
                 print(f"⚠️ Audio generation failed: {audio_error}")
                 print("But news brief was sent successfully!")
@@ -613,7 +613,7 @@ Use bullet points (•) and **bold** headers. No markdown tables.""",
             
             # Try audio generation but don't fail if it doesn't work
             try:
-                speak_text(cleaned_output)
+                speak_text(message)
             except Exception as audio_error:
                 print(f"⚠️ Audio generation failed: {audio_error}")
                 print("But interview prep was sent successfully!")
