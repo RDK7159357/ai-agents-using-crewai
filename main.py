@@ -399,80 +399,30 @@ def daily_brief():
             fresh_news_scout = create_news_scout_agent(current_llm)
             
             task = Task(
-                description="""Find and summarize the most important, SPECIFIC technology news from the last 24 hours.
+                description="""Find 7-10 important tech news stories from the last 24 hours.
 
-CRITICAL: TOPIC DIVERSITY IS MANDATORY.
-You MUST cover a MIX of these categories. Do NOT focus only on product launches or shopping deals.
+Do 5 separate searches:
+1. "AI machine learning news today"
+2. "cybersecurity news today"
+3. "tech startup funding news today"
+4. "India technology news today"
+5. "global tech industry news today"
 
-REQUIRED TOPIC MIX (at least one story from EACH category):
-1. AI / Machine Learning — new models, research breakthroughs, industry adoption (search: "AI news today", "machine learning breakthrough", "LLM release")
-2. Software Engineering / Cloud — developer tools, open source, cloud platforms, programming languages (search: "software engineering news", "open source release", "cloud computing news")  
-3. Cybersecurity — breaches, vulnerabilities, security tools, regulations (search: "cybersecurity news today", "data breach", "security vulnerability")
-4. Startups & Funding — funding rounds, acquisitions, IPOs (search: "startup funding today", "tech acquisition", "Indian startup funding")
-5. Industry / Business — Big Tech earnings, layoffs, policy, regulation (search: "tech industry news", "Big Tech news today")
+Rules:
+- Cover: AI/ML, cybersecurity, startups/funding, software/cloud, industry news
+- Include 3-4 global stories AND 3-4 Indian tech stories
+- Max 1-2 product launch stories
+- Include specific names, numbers, dates
+- No duplicate stories
+- Start directly with 📰 stories, no preamble""",
+                expected_output="""7-10 unique news stories formatted as:
 
-BANNED: Do NOT fill the brief with only smartphone launches, e-commerce sales, or gadget reviews.
-At most 1-2 stories can be about consumer device launches. The rest MUST be from the categories above.
+📰 **[Company/Product]: [What Happened]**
+• Key detail with numbers
+• Second detail
+• Why it matters
 
-GEOGRAPHIC COVERAGE (MANDATORY — search for EACH separately):
-- At least 3-4 global stories (search: "global tech news today", "Silicon Valley news", "Europe tech news", "China tech news", "US technology news today")
-- At least 3-4 Indian tech stories (search: "India tech news today", "Indian startup funding", "India technology policy", "Bangalore tech news", "Indian IT industry news", "India AI news")
-- Indian stories should cover: Indian startups, funding rounds, NASSCOM/IT industry, government tech policy (Digital India, UPI, ONDC), Indian tech companies (Infosys, TCS, Wipro, Reliance Jio, Flipkart, Zomato, PhonePe, etc.)
-- Global stories should cover: Big Tech (Google, Apple, Microsoft, Meta, Amazon), US/EU/China tech developments, global AI race, international cybersecurity
-
-OTHER REQUIREMENTS:
-- MUST return MINIMUM 7-10 news stories (mandatory)
-- Include SPECIFIC company names, product names, version numbers
-- Cite CONCRETE numbers: funding amounts, user counts, performance metrics
-- Reference REAL announcements with specific dates
-- Every story MUST be UNIQUE — absolutely NO duplicate or repeated stories
-- Perform SEPARATE searches for each topic category above to ensure diversity
-
-Your response must start directly with the first 📰 story. No preamble, no commentary, no instructions — just the stories.""",
-                expected_output="""7-10 UNIQUE news stories covering DIVERSE topics. NO duplicates.
-
-MANDATORY: At least 1 story from EACH of these: AI/ML, Software/Cloud, Cybersecurity, Startups/Funding, Industry/Business.
-At most 1-2 product launch stories. The rest must be from the categories above.
-
-Structure each story as:
-        
-📰 **[Specific Product/Company Name]: [What Happened]**
-• Concrete detail 1 (with numbers, names, or specifications)
-• Concrete detail 2 (actual feature, metric, or announcement)
-• Why it matters (specific impact, use case, or implication)
-
-Example AI/ML Story:
-📰 **OpenAI Releases GPT-5 with 10 Trillion Parameters**
-• Launched on February 3, 2026 with 10 trillion parameters (5x larger than GPT-4)
-• Benchmarks show 40% improvement in code generation accuracy on HumanEval
-• Why it matters: First model to pass the ARC-AGI benchmark, suggesting progress toward general reasoning
-
-Example Cybersecurity Story:
-📰 **Critical Linux Kernel Vulnerability (CVE-2026-XXXX) Actively Exploited**
-• Remote code execution flaw in kernel 6.x networking stack, CVSS score 9.8
-• CISA adds to Known Exploited Vulnerabilities catalog, patches available
-• Why it matters: Affects all major cloud providers; urgent patching required for production servers
-
-Example Indian Startup Story:
-📰 **Zepto Raises $350M Series F at $5B Valuation**
-• Mumbai-based quick commerce startup closed funding on February 3, 2026
-• Plans to expand dark store network from 350 to 700 stores by June 2026
-• Why it matters: Largest quick-commerce funding in India, intensifies competition with Blinkit and Instamart
-
-Example Global Tech Story:
-📰 **Google DeepMind Announces Gemini Ultra 2 with Real-Time Video Understanding**
-• New multimodal model processes live video streams at 60fps with 95% accuracy
-• Available via API at $0.01/1K tokens, undercutting GPT-5 pricing by 30%
-• Why it matters: First production-ready model for real-time video analysis at scale
-
-Example Indian Tech Story:
-📰 **PhonePe Crosses 800M Registered Users, Expands into Stock Broking**
-• Walmart-backed fintech now processes 60% of India's UPI transactions
-• Launched Share.Market platform targeting India's growing retail investor base
-• Why it matters: PhonePe's diversification beyond payments signals India's fintech maturation
-
-ABSOLUTE RULE: Each story must appear EXACTLY ONCE. Never repeat a story.
-MUST HAVE: At least 3 global stories AND at least 3 Indian tech stories. This is non-negotiable.""",
+Must include global and Indian tech stories across diverse topics.""",
 
                 agent=fresh_news_scout
             )
@@ -606,44 +556,30 @@ def interview_prep(company):
             interview_agent = create_company_researcher_agent(current_llm)
             
             task = Task(
-                description=f"""You are preparing a candidate for a job interview at {company}.
+                description=f"""Research {company} for a job interview. Do these 4 searches:
+1. "{company} company overview CEO tech stack"
+2. "{company} latest news 2025 2026"
+3. "{company} engineering culture glassdoor reviews"
+4. "{company} competitors challenges hiring"
 
-You MUST perform EXACTLY 6 searches before writing your answer. Do NOT skip any search. Do NOT write your final answer until all 6 searches are complete.
+Then write a briefing with:
+- COMPANY INTEL: what they do, HQ, CEO, employee count
+- TECH STACK: languages, frameworks, cloud services
+- RECENT NEWS: 3-5 events from last 12 months
+- CULTURE: work style, Glassdoor rating
+- CHALLENGES: competitors, problems
+- 5 KILLER QUESTIONS: specific to {company}, referencing facts you found
+- INTERVIEW TIPS: how to answer "Why {company}?"
 
-SEARCH 1: Search for "{company} company overview founded headquarters CEO employees"
-SEARCH 2: Search for "{company} technology stack software engineering tools"
-SEARCH 3: Search for "{company} latest news 2025 2026 announcements"
-SEARCH 4: Search for "{company} glassdoor reviews engineering culture work environment"
-SEARCH 5: Search for "{company} competitors challenges industry problems"
-SEARCH 6: Search for "{company} careers jobs hiring engineering positions"
-
-After completing ALL 6 searches, compile your findings into this briefing:
-
-COMPANY INTEL: founding year, HQ city, employee count, what {company} does, CEO and CTO names.
-
-TECH STACK: every technology, language, framework, database, cloud service you found in job postings or articles.
-
-RECENT MOVES: 3-5 events from the last 12 months with dates and numbers.
-
-CULTURE & TEAM: team size, remote/hybrid/onsite, Glassdoor rating, employee review themes.
-
-CHALLENGES: business problems, competitors, technical difficulties.
-
-KILLER QUESTIONS TO ASK INTERVIEWER: 5-7 smart questions. Each must reference a specific {company} fact you found. After each question explain why it impresses the interviewer.
-
-INTERVIEW PLAYBOOK: How to answer "Why {company}?" using your findings. When to mention specific facts. How to close strong.
-
-IMPORTANT: You have the search tool. USE IT for all 6 searches. The more you search, the better the briefing. Do not say "Not found" without actually searching first.
-
-FORMAT: Use plain text with bullet points (•) and bold (**text**) for headers. Do NOT use markdown tables (| col | col |) or ## headers. Keep it clean and readable.""",
-                expected_output=f"""A detailed {company} intelligence briefing with all sections populated from search results, at least 5 killer interviewer questions, and interview tactics.""",
+Use bullet points (•) and **bold** headers. No markdown tables.""",
+                expected_output=f"""A {company} interview briefing with company intel, tech stack, recent news, culture, challenges, 5+ killer questions, and interview tips.""",
                 agent=interview_agent
             )
             
             crew = Crew(
                 agents=[interview_agent], 
                 tasks=[task],
-                max_rpm=10,
+                max_rpm=2,
                 verbose=True
             )
             

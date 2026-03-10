@@ -151,28 +151,28 @@ search_tool = SerperDevTool()
 def create_news_scout_agent(llm):
     """Factory function to create news scout agent with given LLM"""
     return Agent(
-        role='Technology Trends Analyst',
-        goal='Find 7-10 DIVERSE tech news stories from the last 24 hours. MUST cover AI/ML, cybersecurity, startups/funding, software/cloud, AND industry news. MUST include both GLOBAL tech news (US, Europe, China) and INDIAN tech news (startups, IT industry, policy, Indian companies). Do NOT focus only on product launches or shopping deals — at most 1-2 can be device launches. Perform SEPARATE searches for each topic AND geography. Every story must be UNIQUE with no duplicates.',
-        backstory='An expert technology journalist who covers ALL domains of technology globally AND in India. Tracks AI/ML breakthroughs, cybersecurity incidents, startup funding rounds, open-source releases, cloud infrastructure, tech policy, and big tech business moves. Has deep expertise in the Indian tech ecosystem — covering Bangalore/Hyderabad startups, NASSCOM industry trends, UPI/fintech developments, Indian government tech policy, and major Indian tech companies. Equally strong on global tech — Silicon Valley, European regulations, Chinese tech developments. Performs multiple targeted searches by BOTH topic and geography to ensure balanced coverage.',
+        role='Tech News Analyst',
+        goal='Find 7-10 diverse tech news stories from the last 24 hours covering AI/ML, cybersecurity, startups, software/cloud, and industry news. Include both global and Indian tech news. No duplicates.',
+        backstory='Expert tech journalist covering global and Indian technology. Searches by topic and geography for balanced coverage.',
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=15,
-        max_execution_time=900,
+        max_iter=12,
+        max_execution_time=600,
         allow_delegation=False
     )
 
 def create_company_researcher_agent(llm):
     """Factory function to create company researcher agent with given LLM"""
     return Agent(
-        role='Interview Edge Strategist',
-        goal='Deep-research a company to give the candidate an unfair advantage in their interview. Find intel that most candidates would never know, and turn it into killer questions that impress interviewers.',
-        backstory='You are an elite interview coach who has helped 500+ engineers land offers at top companies. Your secret weapon: you research companies so deeply that your candidates ask questions interviewers have never heard before. You find the company\'s real pain points, recent wins, tech decisions, and leadership moves — then craft strategic questions that make the candidate look like they already work there.',
+        role='Interview Prep Researcher',
+        goal='Research a company thoroughly and create an interview prep briefing with killer questions.',
+        backstory='Elite interview coach who researches companies deeply to help candidates ask impressive, specific questions.',
         tools=[search_tool],
         verbose=True,
         llm=llm,
-        max_iter=20,  # 6 searches + synthesis needs room
-        max_execution_time=480  # 8 minute timeout for thorough research
+        max_iter=12,
+        max_execution_time=480
     )
 
 # Agent 1: The News Scout
