@@ -33,9 +33,9 @@ def get_llm(skip_models=None, prefer_model=None):
     
     models_config = {
         "groq": {
-            "model": "llama-3.1-8b-instant",
+            "model": "llama-3.3-70b-versatile",
             "api_key_env": "GROQ_API_KEY",
-            "name": "Groq Llama 3.1 8B Instant",
+            "name": "Groq Llama 3.3 70B Versatile",
             "free_tier": "unlimited ⭐"
         },
         "gemini": {
