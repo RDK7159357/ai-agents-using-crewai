@@ -271,9 +271,9 @@ def _strip_markdown_for_speech(text):
     return text.strip()
 
 def _build_audio_text(text):
-    use_summary = _is_truthy(os.getenv("AUDIO_USE_SUMMARY", "true"))
+    use_summary = _is_truthy(os.getenv("AUDIO_USE_SUMMARY", "false"))
     max_items = _safe_int(os.getenv("AUDIO_SUMMARY_ITEMS", "4"), 4)
-    max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "800"), 800)
+    max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "0"), 0)
 
     text_to_speak = _extract_audio_summary(text, max_items) if use_summary else text
     text_to_speak = _strip_markdown_for_speech(text_to_speak)
