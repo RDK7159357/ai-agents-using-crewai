@@ -272,8 +272,8 @@ def _strip_markdown_for_speech(text):
 
 def _build_audio_text(text):
     use_summary = _is_truthy(os.getenv("AUDIO_USE_SUMMARY", "true"))
-    max_items = _safe_int(os.getenv("AUDIO_SUMMARY_ITEMS", "4"), 4)
-    max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "800"), 800)
+    max_items = _safe_int(os.getenv("AUDIO_SUMMARY_ITEMS", "50"), 50)
+    max_chars = _safe_int(os.getenv("AUDIO_MAX_CHARS", "10000"), 10000)
 
     text_to_speak = _extract_audio_summary(text, max_items) if use_summary else text
     text_to_speak = _strip_markdown_for_speech(text_to_speak)
@@ -295,9 +295,10 @@ def speak_text(text):
     # --- Try ElevenLabs first ---
     elevenlabs_ok = False
     try:
-        preferred_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
+        preferred_voice_id = "21m00Tcm4TlvDq8ikWAM" #australian female 
         preferred_voice_name = os.getenv("ELEVENLABS_VOICE_NAME", "Rachel")
         voice_id = _pick_voice_id(preferred_voice_id, preferred_voice_name)
+        
 
         if voice_id:
             print("🎙️ Generating audio with ElevenLabs...")
@@ -320,7 +321,7 @@ def speak_text(text):
         try:
             from gtts import gTTS
             print("🎙️ Generating audio with gTTS (female voice)...")
-            tts = gTTS(text=text_to_speak, lang="en", tld="co.uk", slow=False)  # co.uk = British female voice
+            tts = gTTS(text=text_to_speak, lang="en", tld="com.au", slow=False)  # co.uk = British female voice
             tts.save(audio_file)
             print(f"✅ gTTS audio saved to {audio_file}")
         except Exception as gtts_err:

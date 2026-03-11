@@ -1,323 +1,328 @@
 # AI Agent Briefer
 
-An AI-powered daily briefing and interview intelligence agent that delivers tech news and deep company research through Telegram — with voice output.
+> AI-powered daily tech briefings and interview intelligence — delivered to Telegram with voice output. 100% free-tier, zero cost.
 
-## 🚀 Quick Start - Serverless Deployment
-
-**Want to run this 100% serverless with no local hosting?**
-
-See [QUICKSTART.md](QUICKSTART.md) for a 15-minute setup guide using Vercel + GitHub Actions (completely free!)
-
-## Features
-
-- **Daily Tech Brief**: Curated technology news covering AI/ML, cybersecurity, startups, cloud, and Indian tech — with specific details, metrics, and dates
-- **Interview Edge**: Deep company intelligence briefing with tech stack, recent moves, culture insights, killer interviewer questions, and a tactical interview playbook
-- **Voice Output**: Hear your briefings and interview prep via ElevenLabs TTS (with gTTS fallback)
-- **Telegram Bot**: Control everything from Telegram — `/brief` for news, `/interview <company>` for interview prep
-- **Smart Validation**: Output validation catches raw tool calls, template parroting, lazy agents, and malformed responses — auto-retries with the next model
-- **Multi-Model Fallback**: Automatic failover across Ollama, Gemini, Groq, OpenRouter, Mistral, Together AI, and HuggingFace
-- **Serverless**: Deploy to Vercel + GitHub Actions for 100% cloud operation
-
-## Setup
-
-### ⚡ Serverless Setup (Recommended - No Local Hosting!)
-
-Your bot is **100% serverless** - everything runs in the cloud!
-
-**Daily Brief:** Runs automatically at 6:00 AM IST every day
-**On-Demand:** Send `/brief` or `/interview <company>` in Telegram anytime (optional webhook setup)
-
-**Quick Setup:**
-1. See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions (15 minutes)
-2. Or read [SERVERLESS_SETUP.md](SERVERLESS_SETUP.md) for detailed documentation
-
-**What's Deployed:**
-- ✅ GitHub Actions Workflow - Runs daily + on-demand
-- ✅ Vercel Serverless Webhook - Handles Telegram commands (optional)
-- ✅ Free tier APIs - Everything costs $0/month
-
-**That's it! No local setup needed.** 🎉
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-### Local Development (Optional)
+## Table of Contents
 
-If you want to run locally or test:
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+  - [Serverless Deployment](#serverless-deployment-recommended)
+  - [Local Development](#local-development)
+- [Usage](#usage)
+  - [Telegram Commands](#telegram-commands)
+  - [CLI Commands](#cli-commands)
+  - [Interview Edge — What You Get](#interview-edge--what-you-get)
+- [Configuration](#configuration)
+  - [API Keys](#api-keys)
+  - [Environment Variables](#environment-variables)
+  - [Model Selection](#model-selection)
+  - [Audio Settings](#audio-settings)
+- [Testing](#testing)
+- [How It Works](#how-it-works)
+  - [Output Validation](#output-validation)
+  - [Multi-Model Fallback](#multi-model-fallback)
+  - [Daily Schedule](#daily-schedule)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
-1. Clone the repository
+---
 
-2. Create a virtual environment:
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Daily Tech Brief** | 7–10 curated stories across AI/ML, cybersecurity, startups, cloud, and Indian tech — with specific details, metrics, and dates |
+| **Interview Edge** | Deep company research: tech stack, recent moves, culture, challenges, killer questions, and a tactical interview playbook |
+| **Voice Output** | ElevenLabs TTS with gTTS fallback — hear your briefings as Telegram audio messages |
+| **Telegram Bot** | `/brief` for news, `/interview <company>` for interview prep |
+| **Smart Validation** | Catches raw tool calls, template parroting, lazy agents, unfilled placeholders — auto-retries with the next model |
+| **Multi-Model Fallback** | Automatic failover: Ollama → Groq → Gemini → OpenRouter → Mistral → Together AI → HuggingFace |
+| **Serverless** | Deploy via Vercel + GitHub Actions — runs entirely in the cloud for free |
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐      ┌──────────────┐      ┌──────────────┐
+│  Telegram Bot   │◄────►│   main.py    │◄────►│  agents.py   │
+│  (User input)   │      │  (Orchestr.) │      │  (CrewAI)    │
+└─────────────────┘      └──────┬───────┘      └──────┬───────┘
+                                │                      │
+                    ┌───────────┼───────────┐          │
+                    ▼           ▼           ▼          ▼
+              ┌──────────┐ ┌────────┐ ┌──────────┐ ┌────────┐
+              │ Serper   │ │ LLM    │ │ Eleven-  │ │ gTTS   │
+              │ (Search) │ │ APIs   │ │ Labs TTS │ │ (Free) │
+              └──────────┘ └────────┘ └──────────┘ └────────┘
+```
+
+**Tech Stack:** Python · CrewAI · LiteLLM · Serper · ElevenLabs/gTTS · Telegram Bot API · Vercel · GitHub Actions
+
+---
+
+## Quick Start
+
+### Serverless Deployment (Recommended)
+
+No local hosting required — everything runs in the cloud.
+
+| Component | What It Does |
+|-----------|-------------|
+| GitHub Actions | Runs the daily brief on a cron schedule + on-demand triggers |
+| Vercel Webhook | Handles Telegram `/brief` and `/interview` commands |
+| Free-tier APIs | All LLM, search, and TTS services at $0/month |
+
+**Get started in 15 minutes:**
+1. Follow [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions
+2. Or see [SERVERLESS_SETUP.md](SERVERLESS_SETUP.md) for detailed documentation
+
+### Local Development
+
+1. **Clone and set up the environment:**
+
    ```bash
+   git clone <repo-url> && cd ai-agent-briefer
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
+   source venv/bin/activate   # Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file with your API keys:
-   ```env
-   # Required - At least ONE LLM API key
-   GROQ_API_KEY=your_groq_api_key               # ⭐ RECOMMENDED - UNLIMITED free tier!
-   
-   # Alternative/Backup LLM APIs (pick any combination)
-   TOGETHER_API_KEY=your_together_api_key       # FREE: $25 credits (~10K requests)
-   HUGGINGFACE_API_KEY=your_hf_api_key          # FREE: 1000 requests/day
-   GOOGLE_API_KEY=your_gemini_api_key           # FREE: 10 requests/min
-   OPENROUTER_API_KEY=your_openrouter_api_key   # FREE: Limited tier
-   MISTRAL_API_KEY=your_mistral_api_key         # FREE: Limited tier
-   
-   # Required - Search API
-   SERPER_API_KEY=your_serper_api_key          # FREE: 2500 searches/month
-   
-   # Required - Telegram
-   TELEGRAM_BOT_TOKEN=your_telegram_bot_token  # FREE
-   TELEGRAM_CHAT_ID=your_telegram_chat_id      # FREE
-   
-   # Optional
-   ELEVENLABS_API_KEY=your_elevenlabs_api_key  # FREE: 10k chars/month (voice)
-   PREFERRED_MODEL=groq                         # Options: groq, together, huggingface, gemini, openrouter, mistral
-   ```
+2. **Configure API keys** — create a `.env` file (see [Environment Variables](#environment-variables) below).
 
-5. Test your API keys:
+3. **Verify your setup:**
+
    ```bash
    python test_apis.py
    ```
 
-Quick: set keys in zsh (macOS)
-```bash
-# Export for current session
-export GROQ_API_KEY="your_groq_api_key"
-export TELEGRAM_BOT_TOKEN="your_telegram_token"
-export TELEGRAM_CHAT_ID="your_chat_id"
+4. **Run:**
 
-# Persist across sessions (add to ~/.zshrc)
-echo 'export GROQ_API_KEY="your_groq_api_key"' >> ~/.zshrc
-echo 'export TELEGRAM_BOT_TOKEN="your_telegram_token"' >> ~/.zshrc
-echo 'export TELEGRAM_CHAT_ID="your_chat_id"' >> ~/.zshrc
-source ~/.zshrc
-
-# Or copy the example .env
-cp .env.example .env
-# then edit .env and run tests
-python test_llm_apis.py
-```
-
-6. Run locally:
    ```bash
-   # Daily Brief
-   python main.py
-   
-   # Interview Edge (deep company intel + killer questions)
-   python main.py interview "Google"
-   
-   # Telegram Bot Mode
-   python main.py bot
+   python main.py                      # Daily brief
+   python main.py interview "Google"   # Interview prep
+   python main.py bot                  # Telegram bot mode
    ```
-   
-   **This app uses 100% FREE tier models - no paid APIs required!**
 
-### Getting API Keys (All FREE!)
-
-**Required - LLM (Pick at least ONE, more = better fallback):**
-- **Groq** ⭐ RECOMMENDED: https://console.groq.com/keys - **UNLIMITED free tier!**
-- **Together AI**: https://together.ai - $25 free credits (≈10K requests)
-- **Hugging Face**: https://huggingface.co/settings/tokens - 1,000 requests/day free
-- **Google Gemini**: https://aistudio.google.com/app/apikey - 10 requests/min free
-- **OpenRouter**: https://openrouter.ai/keys - Limited free tier
-- **Mistral**: https://console.mistral.ai/api-keys - Limited free tier
-
-**Required - Other Services:**
-- **Serper** (web search): https://serper.dev/ - FREE: 2,500 searches/month
-- **Telegram Bot**: Talk to [@BotFather](https://t.me/botfather) - FREE
-- **Telegram Chat ID**: Message your bot, then visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` - FREE
-
-**Optional:**
-- **ElevenLabs** (voice): https://elevenlabs.io/ - FREE: 10k chars/month
-
-**💰 Best Setup for Public Bot:**
-1. Get Groq API key (unlimited, no rate limits!)
-2. Add 2-3 backup APIs (Together, HuggingFace, Gemini)
-3. Bot auto-switches if one hits limits
-
-**This entire setup costs $0 - everything runs on free tiers!**
-
-## Testing Your Setup
-
-Before running the bot, test your LLM API keys:
-
-```bash
-# Test just the LLM APIs (Gemini, Groq, OpenRouter, Mistral)
-python test_llm_apis.py
-
-# Or test everything (including Telegram, Serper, etc.)
-python test_apis.py
-```
-
-**Recommended:** Start with `test_llm_apis.py` to quickly verify your AI model keys.
-
-This will test:
-- ✅ Gemini 1.5 Flash API (1500 req/day FREE)
-- ✅ Gemini 2.5 Flash API (20 req/day FREE)
-- ✅ Groq (optional, free tier)
-- ✅ OpenRouter (optional, free tier)
-- ✅ Mistral AI (optional, free tier)
-
-**Sample output:**
-```
-╔═══════════════════════════════════════════════════════════════════╗
-║              LLM API TESTING SCRIPT                               ║
-║     Test Gemini, Groq, OpenRouter, Mistral Keys                  ║
-╚═══════════════════════════════════════════════════════════════════╝
-
-====================================================================
-              Testing Gemini 1.5 Flash API
-====================================================================
-
-ℹ️  API Key: AIzaSyC1D2...E3F4
-ℹ️  Initializing Gemini 1.5 Flash...
-ℹ️  Sending test prompt: 'Say hello'
-✅ ✓ Response received in 1.23 seconds
-✅ Gemini 1.5 Flash API is working!
-ℹ️  Free tier: 1,500 requests/day ✨
-
-====================================================================
-                          Summary
-====================================================================
-
-Free Tier Models:
-✅ Gemini 1.5 Flash: Working ✓ (1,500 req/day FREE)
-
-Additional Free Tier Providers (Optional):
-ℹ️  Groq: Not configured (optional)
-ℹ️  OpenRouter: Not configured (optional)
-ℹ️  Mistral: Not configured (optional)
-
-✨ You're all set! Gemini 1.5 Flash is working.
-```
+---
 
 ## Usage
 
 ### Telegram Commands
 
-Send these commands to your bot:
+| Command | Description |
+|---------|-------------|
+| `/brief` | Get today's curated tech news briefing |
+| `/interview <company>` | Deep interview intelligence for a specific company |
+| `/help` | Show available commands |
 
-```
-/brief              - Get today's tech news briefing
-/interview Google   - Get deep interview intelligence for a company
-/help              - Show help message
+### CLI Commands
+
+```bash
+python main.py                       # Run daily tech brief
+python main.py interview "Google"    # Interview prep for a company
+python main.py bot                   # Start Telegram bot (long-running)
 ```
 
 ### Interview Edge — What You Get
 
-The `/interview` command runs 6 targeted searches and produces a complete intelligence briefing:
+The `/interview` command runs 4 targeted searches and produces a complete intelligence briefing:
 
-| Section | What's In It |
-|---------|-------------|
-| **Company Intel** | Founding year, HQ, employee count, CEO/CTO names |
-| **Tech Stack** | Languages, frameworks, databases, cloud, CI/CD, monitoring tools |
-| **Recent Moves** | 3-5 events from the last 12 months with dates and numbers |
-| **Culture & Team** | Team size, remote/hybrid/onsite, Glassdoor rating, review themes |
-| **Challenges** | Business problems, competitors, technical pain points |
-| **Killer Questions** | 5-7 interviewer questions that reference specific company facts |
+| Section | Details |
+|---------|---------|
+| **Company Intel** | What they do, HQ, CEO/CTO, employee count |
+| **Tech Stack** | Languages, frameworks, databases, cloud services, CI/CD |
+| **Recent News** | 3–5 events from the last 12 months with dates and numbers |
+| **Culture & Team** | Work style (remote/hybrid/onsite), Glassdoor rating, review themes |
+| **Challenges** | Competitors, business problems, technical pain points |
+| **Killer Questions** | 5–7 questions that reference specific company facts |
 | **Interview Playbook** | How to answer "Why this company?", when to drop facts, how to close strong |
 
 Each briefing also generates a **voice summary** sent as a Telegram audio message.
 
-### Daily Schedule
+---
 
-The bot automatically sends you a tech brief every day at **6:00 AM IST**.
+## Configuration
 
-No action needed - it just works! 🤖
+### API Keys
 
-## Features
+All services used have a free tier — no credit card required.
 
-- ✅ **100% FREE** - No paid APIs required, runs entirely on free tiers
-- ✅ **Interview Edge** - Deep company research with killer interviewer questions and tactical playbook
-- ✅ **Voice Output** - ElevenLabs TTS with gTTS fallback for both briefs and interview prep
-- ✅ **Smart Validation** - Catches lazy agents, raw tool calls, template parroting, and empty sections — auto-retries with next model
-- ✅ **Markdown → Telegram** - Converts tables, headers, bold, italic, and code blocks to clean Telegram HTML
-- ✅ Specific details with numbers, dates, and metrics
-- ✅ **Multi-Model Fallback** - Ollama → Gemini → Groq → OpenRouter → Mistral (auto-switches on failure)
-- ✅ Smart rate limiting and retry logic with exponential backoff
-- ✅ Real-time Telegram bot interface
-- ✅ Two specialized agents: News Scout (daily brief) and Interview Edge Strategist (company research)
-- ✅ Automated daily briefings via GitHub Actions (free)
+#### Required: LLM (at least one)
 
-## Important Notes
+| Provider | Free Tier | Get Key |
+|----------|-----------|---------|
+| **Groq** ⭐ | Unlimited | [console.groq.com/keys](https://console.groq.com/keys) |
+| **Google Gemini** | 15 req/min | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **Together AI** | $25 credits | [together.ai](https://together.ai) |
+| **HuggingFace** | 1,000 req/day | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
+| **OpenRouter** | Limited | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| **Mistral** | Limited | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys) |
 
-### Model Selection (100% Free)
-This app uses only FREE tier AI models with automatic fallback — no costs!
+#### Required: Other Services
 
-**Fallback order:** Ollama (if configured) → Preferred model → remaining models
+| Service | Free Tier | Get Key |
+|---------|-----------|---------|
+| **Serper** (web search) | 2,500 searches/month | [serper.dev](https://serper.dev/) |
+| **Telegram Bot** | Unlimited | Talk to [@BotFather](https://t.me/botfather) |
 
-1. **Ollama** (Self-hosted, any model)
-   - ✅ Unlimited, no rate limits
-   - ✅ Tried first if `OLLAMA_API_KEY` is set
-   - Use: Set `OLLAMA_API_URL`, `OLLAMA_API_KEY`, `OLLAMA_MODEL` in `.env`
+#### Optional
 
-2. **Groq** (Llama 3.1 8B Instant) ⭐ RECOMMENDED
-   - ✅ **Unlimited free tier**
-   - ✅ Very fast inference
-   - Use: Set `PREFERRED_MODEL=groq`
+| Service | Free Tier | Get Key |
+|---------|-----------|---------|
+| **ElevenLabs** (voice) | 10k chars/month | [elevenlabs.io](https://elevenlabs.io/) |
 
-3. **Gemini 2.0 Flash** (Default for interview prep)
-   - ✅ 15 requests/min free
-   - ✅ High context window, great for interview research
-   - Use: Set `PREFERRED_MODEL=gemini`
+> **Tip:** Configure 2–3 LLM providers for automatic failover. The bot auto-switches if one hits rate limits.
 
-4. **OpenRouter** (Llama 3.1 8B Free)
-   - ✅ Free tier available
-   - Use: Set `PREFERRED_MODEL=openrouter`
+### Environment Variables
 
-5. **Mistral** (Mistral Small Latest)
-   - ✅ Free tier available
-   - Use: Set `PREFERRED_MODEL=mistral`
+Create a `.env` file in the project root:
 
-6. **Together AI** (Llama 3.1 8B Turbo)
-   - ✅ $25 free credits
-   - Use: Set `PREFERRED_MODEL=together`
+```env
+# ── LLM API Keys (at least one required) ──────────────────────
+GROQ_API_KEY=your_key_here              # ⭐ Recommended
+GOOGLE_API_KEY=your_key_here
+TOGETHER_API_KEY=your_key_here
+HUGGINGFACE_API_KEY=your_key_here
+OPENROUTER_API_KEY=your_key_here
+MISTRAL_API_KEY=your_key_here
 
-7. **HuggingFace** (Llama 3 8B Instruct)
-   - ✅ 1,000 requests/day free
-   - Use: Set `PREFERRED_MODEL=huggingface`
+# ── Search ─────────────────────────────────────────────────────
+SERPER_API_KEY=your_key_here
 
-**All models above are free-tier eligible - no credit card needed!**
+# ── Telegram ───────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# ── Optional: Voice ───────────────────────────────────────────
+ELEVENLABS_API_KEY=your_key_here
+ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM   # Default: Rachel
+ELEVENLABS_VOICE_NAME=Rachel
+
+# ── Optional: Model Preferences ───────────────────────────────
+PREFERRED_MODEL=groq                  # groq | gemini | together | huggingface | openrouter | mistral
+GOOGLE_MODEL=gemini-2.0-flash        # Override Gemini model version
+
+# ── Optional: Ollama (self-hosted) ────────────────────────────
+OLLAMA_API_URL=https://your-ollama-instance/api/chat
+OLLAMA_API_KEY=your_key_here
+OLLAMA_MODEL=gpt-oss:120b-cloud
+```
+
+### Model Selection
+
+The app tries models in a fallback chain. Set `PREFERRED_MODEL` to control the primary choice.
+
+| Priority | Provider | Model | Free Tier |
+|----------|----------|-------|-----------|
+| 0 | **Ollama** | Configurable | Unlimited (self-hosted) |
+| 1 | **Groq** ⭐ | Llama 3.3 70B Versatile | Unlimited |
+| 2 | **Gemini** | 2.0 Flash | 15 req/min |
+| 3 | **Together AI** | Llama 3.1 8B Turbo | $25 credits |
+| 4 | **HuggingFace** | Llama 3 8B Instruct | 1,000 req/day |
+| 5 | **OpenRouter** | Llama 3.1 8B (free) | Limited |
+| 6 | **Mistral** | Small Latest | Limited |
+
+> Ollama is tried first when configured. The remaining order follows `PREFERRED_MODEL`, then the default fallback sequence.
+
+### Audio Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUDIO_USE_SUMMARY` | `true` | Summarise text before TTS (`true`) or read full output (`false`) |
+| `AUDIO_SUMMARY_ITEMS` | `4` | Number of headline items in the audio summary |
+| `AUDIO_MAX_CHARS` | `10000` | Maximum characters sent to TTS |
+
+**ElevenLabs voices** (set via `ELEVENLABS_VOICE_ID`):
+
+| Voice | Gender | ID |
+|-------|--------|-----|
+| Rachel | Female | `21m00Tcm4TlvDq8ikWAM` |
+| Bella | Female | `EXAVITQu4vr4xnSDxMaL` |
+| Elli | Female | `MF3mGyEYCl7XYWbV9V6O` |
+| Adam | Male | `pNInz6obpgDQGcFmaJgB` |
+| Antoni | Male | `ErXwobaYiN019PkySvjV` |
+| Arnold | Male | `VR6AewLTigWG4xSOukaG` |
+
+If ElevenLabs is unavailable, the system automatically falls back to **gTTS** (Google Text-to-Speech).
+
+---
+
+## Testing
+
+```bash
+# Quick — verify LLM API keys only
+python test_llm_apis.py
+
+# Full — test LLMs, Telegram, Serper, and all integrations
+python test_apis.py
+```
+
+---
+
+## How It Works
 
 ### Output Validation
-The system validates every output before sending to Telegram:
-- **Raw tool calls** — Detects when the LLM outputs search tool syntax instead of results
-- **Template parroting** — Catches when the LLM copies instructions back verbatim
-- **Lazy agents** — Rejects outputs where 4+ sections say "Not found" (agent didn't run searches)
-- **Unfilled placeholders** — Catches bracket placeholders like `[year]`, `[Name]` left unfilled
-- **Minimum length** — Ensures output has sufficient content
 
-Failed validation triggers automatic retry with the next model in the fallback chain.
+Every LLM output is validated before delivery:
 
-### API Quotas (All FREE)
-- **Ollama**: Unlimited (self-hosted) ✅
-- **Groq**: Unlimited free tier ✅
-- **Gemini 2.0 Flash**: 15 requests/min ✅
-- **OpenRouter**: Free tier available ✅
-- **Mistral**: Free tier available ✅
-- **Together AI**: $25 free credits ✅
-- **HuggingFace**: 1,000 requests/day ✅
-- **Serper**: 2,500 searches/month ✅
-- **ElevenLabs**: 10k characters/month ✅ (optional, falls back to gTTS)
-- **Daily cost: $0** 🎉
+| Check | What It Catches |
+|-------|----------------|
+| **Raw tool calls** | LLM outputs search syntax instead of results |
+| **Template parroting** | LLM copies instructions back verbatim |
+| **Lazy agents** | 4+ sections say "Not found" (agent skipped searches) |
+| **Unfilled placeholders** | Bracket placeholders like `[year]`, `[Name]` left in output |
+| **Minimum length** | Output too short to be useful |
+| **Topic diversity** | All stories are product launches (news brief only) |
+| **Geographic coverage** | Missing global or Indian tech coverage (news brief only) |
 
-### GitHub Actions Cron
-- Runs at **8:00 AM UTC** (not local time)
-- GitHub may delay execution by 5-15 minutes during high load
-- Workflows auto-disable after 60 days of repo inactivity - re-enable in Actions tab
-- **First-time setup**: Enable workflow in GitHub Actions tab
+Failed validation triggers an **automatic retry with the next model** in the fallback chain.
 
-### Troubleshooting
-If you encounter issues, see:
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
-- [MODEL_SWITCHING.md](MODEL_SWITCHING.md) - How to switch between AI models
+### Multi-Model Fallback
+
+```
+Ollama → Groq → Gemini → Together AI → HuggingFace → OpenRouter → Mistral
+  │        │        │         │             │             │            │
+  ▼        ▼        ▼         ▼             ▼             ▼            ▼
+ fail?   fail?    fail?     fail?         fail?         fail?       fail?
+  │        │        │         │             │             │            │
+  └──next──┘──next──┘──next───┘───next──────┘────next─────┘───next────┘
+```
+
+- Rate-limit errors (429) trigger wait-and-retry with exponential backoff before moving to the next model
+- Up to 5 model attempts per execution
+- Error notifications sent to Telegram only after **all** models have been exhausted
+
+### Daily Schedule
+
+| Event | Time | Platform |
+|-------|------|----------|
+| Automated daily brief | 6:00 AM IST (8:00 AM UTC) | GitHub Actions |
+| On-demand commands | Anytime | Telegram Bot / CLI |
+
+> GitHub Actions may delay cron execution by 5–15 minutes during high load. Workflows auto-disable after 60 days of repo inactivity — re-enable from the Actions tab.
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| API key errors | Run `python test_apis.py` to diagnose |
+| Rate limits on all models | Wait for quota reset or add more API keys |
+| No audio generated | Check `ELEVENLABS_API_KEY` or install `gTTS` as fallback |
+| GitHub Actions not running | Re-enable workflow in the Actions tab (auto-disables after 60 days) |
+
+For detailed guides:
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Common issues and solutions
+- [MODEL_SWITCHING.md](MODEL_SWITCHING.md) — How to switch between AI models
+
+---
 
 ## License
 
