@@ -3,6 +3,7 @@ from agents import news_scout, company_researcher, speak_text, send_telegram, ge
 import time
 import re
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 import requests
 import json
@@ -398,17 +399,20 @@ def daily_brief():
             # Create fresh agent with current LLM
             fresh_news_scout = create_news_scout_agent(current_llm)
             
+            today = datetime.now().strftime("%B %d, %Y")
+            
             task = Task(
-                description="""Find 7-10 important tech news stories from the last 24 hours.
+                description=f"""Find 7-10 important tech news stories from the last 24 hours. Today's date is {today}.
 
-Do 5 separate searches:
-1. "AI machine learning news today"
-2. "cybersecurity news today"
-3. "tech startup funding news today"
-4. "India technology news today"
-5. "global tech industry news today"
+Do 5 separate searches using today's date ({today}) to get the most current results:
+1. "AI machine learning news {today}"
+2. "cybersecurity news {today}"
+3. "tech startup funding news {today}"
+4. "India technology news {today}"
+5. "global tech industry news {today}"
 
 Rules:
+- Only include stories published on or after {today} — reject any older results
 - Cover: AI/ML, cybersecurity, startups/funding, software/cloud, industry news
 - Include 3-4 global stories AND 3-4 Indian tech stories
 - Max 1-2 product launch stories
@@ -454,9 +458,6 @@ Must include global and Indian tech stories across diverse topics.""",
                 raw_output = raw_output[first_story:]
             
             # Format and send to Telegram with proper HTML formatting
-            from datetime import datetime
-            today = datetime.now().strftime("%B %d, %Y")
-            
             formatted_content = format_for_telegram(raw_output)
             message = f"""<b>🤖 Tech Daily Brief</b>
 <i>{today}</i>

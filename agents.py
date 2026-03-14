@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 import re
 import time
+from datetime import datetime
 from crewai import Agent, LLM
 from crewai_tools import SerperDevTool
 
@@ -150,9 +151,10 @@ search_tool = SerperDevTool()
 
 def create_news_scout_agent(llm):
     """Factory function to create news scout agent with given LLM"""
+    today = datetime.now().strftime("%B %d, %Y")
     return Agent(
         role='Tech News Analyst',
-        goal='Find 7-10 diverse tech news stories from the last 24 hours covering AI/ML, cybersecurity, startups, software/cloud, and industry news. Include both global and Indian tech news. No duplicates.',
+        goal=f'Find 7-10 diverse tech news stories published today ({today}) covering AI/ML, cybersecurity, startups, software/cloud, and industry news. Include both global and Indian tech news. Only use stories from the last 24 hours. No duplicates.',
         backstory='Expert tech journalist covering global and Indian technology. Searches by topic and geography for balanced coverage.',
         tools=[search_tool],
         verbose=True,
