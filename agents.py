@@ -148,6 +148,10 @@ def get_llm(skip_models=None, prefer_model=None):
 gemini_llm = get_llm()
 
 search_tool = SerperDevTool()
+news_search_tool = SerperDevTool(
+    search_url="https://google.serper.dev/news",
+    n_results=20,
+)
 
 def create_news_scout_agent(llm):
     """Factory function to create news scout agent with given LLM"""
@@ -156,7 +160,7 @@ def create_news_scout_agent(llm):
         role='Tech News Analyst',
         goal=f'Find 7-10 diverse tech news stories published today ({today}) covering AI/ML, cybersecurity, startups, software/cloud, and industry news. Include both global and Indian tech news. Only use stories from the last 24 hours. No duplicates.',
         backstory='Expert tech journalist covering global and Indian technology. Searches by topic and geography for balanced coverage.',
-        tools=[search_tool],
+        tools=[news_search_tool],
         verbose=True,
         llm=llm,
         max_iter=12,
@@ -170,7 +174,7 @@ def create_company_researcher_agent(llm):
         role='Interview Prep Researcher',
         goal='Research a company thoroughly and create an interview prep briefing with killer questions.',
         backstory='Elite interview coach who researches companies deeply to help candidates ask impressive, specific questions.',
-        tools=[search_tool],
+        tools=[search_tool, news_search_tool],
         verbose=True,
         llm=llm,
         max_iter=12,

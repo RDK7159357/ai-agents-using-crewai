@@ -3,7 +3,7 @@ from agents import news_scout, company_researcher, speak_text, send_telegram, ge
 import time
 import re
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests
 import json
@@ -94,6 +94,48 @@ def validate_news_output(output_text):
     """Validate that the output contains sufficient news stories"""
     if not output_text or len(output_text.strip()) < 200:
         return False, "Output too short (less than 200 characters)"
+
+    def _extract_story_blocks(text):
+        return [block.strip() for block in text.split('📰') if block.strip()]
+
+    def _parse_dates(text):
+        parsed = []
+
+        # ISO dates: 2026-03-18
+        for match in re.findall(r'\b\d{4}-\d{2}-\d{2}\b', text):
+            try:
+                parsed.append(datetime.strptime(match, "%Y-%m-%d").date())
+            except ValueError:
+                continue
+
+        # Long dates: March 18, 2026 / Mar 18 2026
+        month_pattern = (
+            r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+            r'Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|'
+            r'Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,)?\s+\d{4}\b'
+        )
+        for match in re.findall(month_pattern, text, re.IGNORECASE):
+            # re.findall with alternation above only returns the month token unless we re-find full spans
+            pass
+
+        for m in re.finditer(
+            r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+            r'Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|'
+            r'Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,)?\s+\d{4}\b',
+            text,
+            flags=re.IGNORECASE,
+        ):
+            date_str = m.group(0)
+            clean = re.sub(r'(\d)(st|nd|rd|th)', r'\1', date_str, flags=re.IGNORECASE)
+            clean = clean.replace(',', '')
+            for fmt in ("%B %d %Y", "%b %d %Y"):
+                try:
+                    parsed.append(datetime.strptime(clean, fmt).date())
+                    break
+                except ValueError:
+                    continue
+
+        return parsed
     
     # Check if output is just a meta-message about needing to search
     meta_phrases = [
@@ -134,6 +176,45 @@ def validate_news_output(output_text):
     
     if story_count < 5:
         return False, f"Only {story_count} unique stories found, minimum is 5"
+
+    # Freshness guardrail: every story must include a recent publication date
+    # to avoid stale roundups and generic category pages.
+    today = datetime.now().date()
+    max_story_age_days = int(os.getenv("NEWS_MAX_AGE_DAYS", "3"))
+    story_blocks = _extract_story_blocks(output_text)
+    stale_stories = []
+    undated_stories = []
+
+    invalid_headline_phrases = [
+        "breaking news in technology",
+        "news rundown",
+        "top stories",
+        "latest technology news",
+    ]
+    for idx, block in enumerate(story_blocks, start=1):
+        first_line = block.splitlines()[0].strip().lower() if block.splitlines() else ""
+        if any(p in first_line for p in invalid_headline_phrases):
+            return False, f"Story {idx} looks like a generic roundup, not a specific news event"
+
+        # Prefer explicit published line if present.
+        published_line = re.search(r'published\s*:\s*([^\n]+)', block, re.IGNORECASE)
+        date_candidates = _parse_dates(published_line.group(1)) if published_line else _parse_dates(block)
+
+        if not date_candidates:
+            undated_stories.append(idx)
+            continue
+
+        published_date = max(date_candidates)
+        age_days = (today - published_date).days
+        if age_days > max_story_age_days:
+            stale_stories.append((idx, published_date.isoformat(), age_days))
+
+    if stale_stories:
+        stale_preview = ", ".join([f"#{i} ({d}, {age}d old)" for i, d, age in stale_stories[:3]])
+        return False, f"Found stale stories older than {max_story_age_days} days: {stale_preview}"
+
+    if undated_stories:
+        return False, f"Stories missing publication date (Published: ...): {undated_stories[:4]}"
     
     # Check for Indian tech content
     india_keywords = ['india', 'indian', 'mumbai', 'bangalore', 'delhi', 'bengaluru', 'hyderabad',
@@ -405,23 +486,26 @@ def daily_brief():
                 description=f"""Find 7-10 important tech news stories from the last 24 hours. Today's date is {today}.
 
 Do 5 separate searches using today's date ({today}) to get the most current results:
-1. "AI machine learning news {today}"
-2. "cybersecurity news {today}"
-3. "tech startup funding news {today}"
-4. "India technology news {today}"
-5. "global tech industry news {today}"
+1. "AI machine learning news {today} past 24 hours"
+2. "cybersecurity news {today} past 24 hours"
+3. "tech startup funding news {today} past 24 hours"
+4. "India technology news {today} past 24 hours"
+5. "global tech industry news {today} past 24 hours"
 
 Rules:
-- Only include stories published on or after {today} — reject any older results
+- Only include stories published in the last 72 hours (prefer last 24h); reject anything older
 - Cover: AI/ML, cybersecurity, startups/funding, software/cloud, industry news
 - Include 3-4 global stories AND 3-4 Indian tech stories
 - Max 1-2 product launch stories
 - Include specific names, numbers, dates
+- Every story must include a publication date and source on its own line
+- Reject generic roundup pages (e.g., "breaking news", "news rundown", "latest tech news")
 - No duplicate stories
 - Start directly with 📰 stories, no preamble""",
                 expected_output="""7-10 unique news stories formatted as:
 
 📰 **[Company/Product]: [What Happened]**
+• Published: Month DD, YYYY | Source: Publication Name
 • Key detail with numbers
 • Second detail
 • Why it matters
