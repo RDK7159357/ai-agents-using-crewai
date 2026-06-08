@@ -18,15 +18,12 @@ def get_ollama_llm():
     OpenAI-compatible /v1 endpoint. This ensures base_url is correctly
     passed through to LiteLLM instead of defaulting to platform.openai.com.
     """
-    api_url = os.getenv("OLLAMA_API_URL", "https://ollama.com/api/chat")
-    api_key = os.getenv("OLLAMA_API_KEY")
-    model = os.getenv("OLLAMA_MODEL", "gpt-oss:120b-cloud")
-    
-    if not api_key:
-        return None
+    api_url = os.getenv("OLLAMA_API_URL", "http://192.168.68.110:11434/v1")
+    api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+    model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
     
     # Derive the OpenAI-compatible base URL from the Ollama API URL
-    base_url = api_url.replace("/api/chat", "/v1").rstrip("/")
+    base_url = api_url.replace("/api/chat", "/v1").replace("/api", "/v1").rstrip("/")
     
     # Prefix with openai/ so LiteLLM routes to the custom base_url
     full_model = f"openai/{model}" if not model.startswith("openai/") else model
@@ -418,15 +415,15 @@ def daily_brief():
     """Execute daily brief with runtime fallback mechanism - Ollama first"""
     print("🚀 Starting daily brief...")
     
-    # Check for Ollama API key first
-    ollama_llm = get_ollama_llm()
+    # Check for Ollama first
+    # ollama_llm = get_ollama_llm()
     
     # Diagnose available API keys
     available_keys = []
-    if ollama_llm:
-        available_keys.append("ollama")
+    # if ollama_llm:
+    #     available_keys.append("ollama")
     
-    for key_name in ["GOOGLE_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "MISTRAL_API_KEY"]:
+    for key_name in ["OLLAMA_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "MISTRAL_API_KEY"]:
         if os.getenv(key_name):
             available_keys.append(key_name.replace("_API_KEY", "").lower())
     
@@ -437,9 +434,9 @@ def daily_brief():
         return
     
     # Show which model is being used
-    if ollama_llm:
-        print(f"🤖 Primary Model: Ollama ({ollama_llm.model}) with automatic fallback to Gemini/Groq/OpenRouter/Mistral")
-    else:
+    # if ollama_llm:
+    #     print(f"🤖 Primary Model: Ollama ({ollama_llm.model}) with automatic fallback to Gemini/Groq/OpenRouter/Mistral")
+    # else:
         preferred = os.getenv("PREFERRED_MODEL", "gemini")
         print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
     
@@ -449,7 +446,7 @@ def daily_brief():
     # Reset tried models for this execution
     reset_tried_models()
     tried_models = set()
-    max_retries = 5  # Increased to 5: ollama + gemini + groq + openrouter + mistral
+    max_retries = 7  # ollama + groq + together + huggingface + gemini + openrouter + mistral
     current_attempt = 0
     
     while current_attempt < max_retries:
@@ -457,11 +454,11 @@ def daily_brief():
         
         try:
             # Try Ollama first, then fall back to other models
-            if current_attempt == 1 and ollama_llm:
-                current_llm = ollama_llm
-                current_model = "ollama"
-                print(f"\n📡 Attempt {current_attempt}/{max_retries} using Ollama ({ollama_llm.model})...")
-            else:
+            # if current_attempt == 1 and ollama_llm:
+            #     current_llm = ollama_llm
+            #     current_model = "ollama"
+            #     print(f"\n📡 Attempt {current_attempt}/{max_retries} using Ollama ({ollama_llm.model})...")
+            # else:
                 # Fall back to other LLMs
                 if current_attempt == 1:
                     # If Ollama not available, skip to attempt 2
@@ -602,7 +599,7 @@ def interview_prep(company):
     # Reset tried models for this execution
     reset_tried_models()
     tried_models = set()
-    max_retries = 5  # Try all models: ollama, gemini, groq, openrouter, mistral
+    max_retries = 7  # ollama + groq + together + huggingface + gemini + openrouter + mistral
     current_attempt = 0
     
     while current_attempt < max_retries:

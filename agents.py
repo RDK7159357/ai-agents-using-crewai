@@ -30,9 +30,17 @@ def get_llm(skip_models=None, prefer_model=None):
         skip_models = set()
     
     # Use override if provided, otherwise use env variable
-    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "groq")).lower()
+    preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "ollama")).lower()
     
     models_config = {
+        # "ollama": {
+        #     "model": os.getenv("OLLAMA_MODEL", "llama3.2:1b"),
+        #     "api_key_env": "OLLAMA_API_KEY",
+        #     "api_key_default": "ollama",
+        #     "base_url": os.getenv("OLLAMA_API_URL", "http://192.168.68.110:11434/v1"),
+        #     "name": "Ollama Llama 3.2 1B",
+        #     "free_tier": "local"
+        # },
         "groq": {
             "model": "llama-3.3-70b-versatile",
             "api_key_env": "GROQ_API_KEY",
@@ -72,7 +80,7 @@ def get_llm(skip_models=None, prefer_model=None):
     }
     
     # Default fallback order
-    fallback_order = ["groq", "together", "huggingface", "gemini", "openrouter", "mistral"]
+    fallback_order = ["ollama", "groq", "together", "huggingface", "gemini", "openrouter", "mistral"]
     
     # Move preferred model to front if specified
     if preferred_model in models_config:
@@ -88,6 +96,8 @@ def get_llm(skip_models=None, prefer_model=None):
             
         config = models_config[model_name]
         api_key = os.getenv(config["api_key_env"])
+        if not api_key:
+            api_key = config.get("api_key_default")
         
         if not api_key:
             print(f"⚠️ {config['name']} - API key not configured ({config['api_key_env']})")
@@ -108,16 +118,22 @@ def get_llm(skip_models=None, prefer_model=None):
                     full_model = f"openrouter/{config['model']}"
                 elif model_name == "mistral":
                     full_model = f"mistral/{config['model']}"
+                elif model_name == "ollama":
+                    full_model = f"openai/{config['model']}" if not config['model'].startswith("openai/") else config['model']
                 else:
                     full_model = config['model']
                 
-                return LLM(
-                    model=full_model,
-                    api_key=api_key,
-                    max_retries=2,  # Reduced to fail faster
-                    timeout=120,  # Reduced timeout
-                    temperature=0.7
-                )
+                llm_kwargs = {
+                    "model": full_model,
+                    "api_key": api_key,
+                    "max_retries": 2,  # Reduced to fail faster
+                    "timeout": 120,  # Reduced timeout
+                    "temperature": 0.7,
+                }
+                if model_name == "ollama":
+                    llm_kwargs["base_url"] = config["base_url"].rstrip("/")
+
+                return LLM(**llm_kwargs)
             except ImportError as e:
                 print(f"⚠️ {config['name']} initialization failed: {str(e)}")
                 print(f"   ℹ️  This provider requires 'litellm'. Run: pip install litellm")
@@ -131,6 +147,7 @@ def get_llm(skip_models=None, prefer_model=None):
         "No free-tier LLM API keys found!\n\n"
         "This app uses FREE TIER models with automatic fallback.\n"
         "Please set at least one of:\n"
+        "- OLLAMA_API_URL / OLLAMA_MODEL / OLLAMA_API_KEY (local Ollama llama3.2:1b)\n"
         "- GROQ_API_KEY (Groq Llama 3.1) - ⭐ RECOMMENDED - UNLIMITED free tier\n"
         "- TOGETHER_API_KEY (Together AI) - $25 free credits (~10K requests)\n"
         "- HUGGINGFACE_API_KEY (HuggingFace) - 1000 requests/day free\n"
