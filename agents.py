@@ -33,14 +33,14 @@ def get_llm(skip_models=None, prefer_model=None):
     preferred_model = (prefer_model or os.getenv("PREFERRED_MODEL", "ollama")).lower()
     
     models_config = {
-        # "ollama": {
-        #     "model": os.getenv("OLLAMA_MODEL", "llama3.2:1b"),
-        #     "api_key_env": "OLLAMA_API_KEY",
-        #     "api_key_default": "ollama",
-        #     "base_url": os.getenv("OLLAMA_API_URL", "http://192.168.68.110:11434/v1"),
-        #     "name": "Ollama Llama 3.2 1B",
-        #     "free_tier": "local"
-        # },
+        "ollama": {
+            "model": os.getenv("OLLAMA_MODEL", "llama3.2:1b"),
+            "api_key_env": "OLLAMA_API_KEY",
+            "api_key_default": "ollama",
+            "base_url": os.getenv("OLLAMA_API_URL", "http://192.168.68.110:11434/v1"),
+            "name": "Ollama Llama 3.2 1B",
+            "free_tier": "local"
+        },
         "groq": {
             "model": "llama-3.3-70b-versatile",
             "api_key_env": "GROQ_API_KEY",
@@ -94,6 +94,9 @@ def get_llm(skip_models=None, prefer_model=None):
             print(f"⏭️  Skipping {model_name} (already tried)")
             continue  # Skip models that already failed
             
+        if model_name not in models_config:
+            continue
+            
         config = models_config[model_name]
         api_key = os.getenv(config["api_key_env"])
         if not api_key:
@@ -102,6 +105,15 @@ def get_llm(skip_models=None, prefer_model=None):
         if not api_key:
             print(f"⚠️ {config['name']} - API key not configured ({config['api_key_env']})")
             continue
+            
+        if model_name == "ollama":
+            import requests
+            test_url = config.get("base_url", "http://localhost:11434/v1").rstrip("/")
+            try:
+                requests.get(test_url, timeout=2)
+            except Exception as e:
+                print(f"⚠️ {config['name']} - Not running or accessible at {test_url} ({str(e)}). Skipping.")
+                continue
         
         if api_key:
             try:

@@ -28,6 +28,14 @@ def get_ollama_llm():
     # Prefix with openai/ so LiteLLM routes to the custom base_url
     full_model = f"openai/{model}" if not model.startswith("openai/") else model
     
+    # Check if Ollama is running / accessible
+    try:
+        import requests
+        requests.get(base_url, timeout=2)
+    except Exception as e:
+        print(f"⚠️ Ollama is not running or accessible at {base_url} ({str(e)}). Skipping.")
+        return None
+        
     try:
         return LLM(
             model=full_model,
