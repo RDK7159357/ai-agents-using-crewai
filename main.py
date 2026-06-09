@@ -434,11 +434,8 @@ def daily_brief():
         return
     
     # Show which model is being used
-    # if ollama_llm:
-    #     print(f"🤖 Primary Model: Ollama ({ollama_llm.model}) with automatic fallback to Gemini/Groq/OpenRouter/Mistral")
-    # else:
-        preferred = os.getenv("PREFERRED_MODEL", "gemini")
-        print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
+    preferred = os.getenv("PREFERRED_MODEL", "gemini")
+    print(f"🤖 Model: {preferred} (Gemini 2.5 Flash with automatic runtime fallback)")
     
     # Add delay to avoid rate limits
     time.sleep(2)
@@ -453,20 +450,14 @@ def daily_brief():
         current_attempt += 1
         
         try:
-            # Try Ollama first, then fall back to other models
-            # if current_attempt == 1 and ollama_llm:
-            #     current_llm = ollama_llm
-            #     current_model = "ollama"
-            #     print(f"\n📡 Attempt {current_attempt}/{max_retries} using Ollama ({ollama_llm.model})...")
-            # else:
-                # Fall back to other LLMs
-                if current_attempt == 1:
-                    # If Ollama not available, skip to attempt 2
-                    current_attempt += 1
-                
-                current_llm = get_llm(skip_models=tried_models)
-                current_model = extract_model_provider(current_llm.model)
-                print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
+            # Fall back to other LLMs
+            if current_attempt == 1:
+                # If Ollama not available, skip to attempt 2
+                current_attempt += 1
+            
+            current_llm = get_llm(skip_models=tried_models)
+            current_model = extract_model_provider(current_llm.model)
+            print(f"\n📡 Attempt {current_attempt}/{max_retries} using {current_model}...")
             
             # Add progressive backoff delay for retries
             if current_attempt > 1:
