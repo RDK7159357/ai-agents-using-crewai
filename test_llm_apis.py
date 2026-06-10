@@ -188,7 +188,7 @@ def test_groq():
 
 def test_openrouter():
     """Test OpenRouter API"""
-    print_header("Testing OpenRouter API (Llama 3.1 8B Instruct)")
+    print_header("Testing OpenRouter API (Gemma 4 31B Free)")
     
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -201,10 +201,10 @@ def test_openrouter():
         from crewai import LLM
         
         print_info(f"API Key: {api_key[:10]}...{api_key[-4:]}")
-        print_info("Initializing OpenRouter Llama 3.1 8B Instruct...")
+        print_info("Initializing OpenRouter Gemma 4 31B Free...")
         
         llm = LLM(
-            model="openrouter/meta-llama/llama-3.1-8b-instruct",
+            model="openrouter/google/gemma-4-31b-it:free",
             api_key=api_key,
             max_retries=1,
             timeout=30

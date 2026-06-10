@@ -1,3 +1,10 @@
+# Patch crewai prompt caching bug for non-Anthropic providers (like Groq)
+try:
+    import crewai.llms.cache as _crewai_cache
+    _crewai_cache.mark_cache_breakpoint = lambda msg: msg
+except ImportError:
+    pass
+
 from crewai import Task, Crew, LLM
 from agents import news_scout, company_researcher, speak_text, send_telegram, get_llm, reset_tried_models, create_news_scout_agent, create_company_researcher_agent
 import time
@@ -354,6 +361,8 @@ def extract_retry_wait_seconds(error_str, default=65):
 
 def is_rate_limit_error(error_str):
     """Check if the error is a rate limit error"""
+    if "limit: 0" in error_str.lower() or "limit:0" in error_str.lower():
+        return False
     rate_limit_indicators = ["429", "RESOURCE_EXHAUSTED", "TooManyRequests",
                               "RateLimitError", "rate_limited", "rate limit"]
     return any(ind.lower() in error_str.lower() for ind in rate_limit_indicators)

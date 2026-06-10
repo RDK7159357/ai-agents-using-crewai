@@ -1,3 +1,10 @@
+# Patch crewai prompt caching bug for non-Anthropic providers (like Groq)
+try:
+    import crewai.llms.cache as _crewai_cache
+    _crewai_cache.mark_cache_breakpoint = lambda msg: msg
+except ImportError:
+    pass
+
 from dotenv import load_dotenv
 import os
 import re
@@ -53,6 +60,12 @@ def get_llm(skip_models=None, prefer_model=None):
             "name": "Gemini 2.0 Flash",
             "free_tier": "15 req/min"
         },
+        "gemini-1.5": {
+            "model": "gemini-1.5-flash",
+            "api_key_env": "GOOGLE_API_KEY",
+            "name": "Gemini 1.5 Flash",
+            "free_tier": "15 req/min, 1500 req/day"
+        },
         "together": {
             "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
             "api_key_env": "TOGETHER_API_KEY",
@@ -66,9 +79,9 @@ def get_llm(skip_models=None, prefer_model=None):
             "free_tier": "1000 req/day"
         },
         "openrouter": {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": "google/gemma-4-31b-it:free",
             "api_key_env": "OPENROUTER_API_KEY",
-            "name": "OpenRouter Llama 3.1 8B (free)",
+            "name": "OpenRouter Gemma 4 31B (free)",
             "free_tier": "limited"
         },
         "mistral": {
@@ -80,7 +93,7 @@ def get_llm(skip_models=None, prefer_model=None):
     }
     
     # Default fallback order
-    fallback_order = ["ollama", "groq", "together", "huggingface", "gemini", "openrouter", "mistral"]
+    fallback_order = ["ollama", "groq", "together", "huggingface", "gemini", "gemini-1.5", "openrouter", "mistral"]
     
     # Move preferred model to front if specified
     if preferred_model in models_config:
@@ -118,7 +131,7 @@ def get_llm(skip_models=None, prefer_model=None):
         if api_key:
             try:
                 # Create model string with provider prefix
-                if model_name == "gemini":
+                if model_name in ["gemini", "gemini-1.5"]:
                     full_model = f"google/{config['model']}"
                 elif model_name == "groq":
                     full_model = f"groq/{config['model']}"
